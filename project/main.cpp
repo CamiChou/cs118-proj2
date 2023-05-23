@@ -1,11 +1,94 @@
 #include <iostream>
 #include <sstream>
+#include <cstring>
+#include <unistd.h>
+#include <netinet/in.h>
 #include <string>
 #include <fstream>
-using namespace std;
 #include "config_parser.h"
+using namespace std;
+
+const int BUFFER_SIZE = 8192;
+
+void handleClient(int clientSocket) {
+  char buffer[BUFFER_SIZE];
+
+  ssize_t bytesRead = recv(clientSocket, buffer, BUFFER_SIZE, 0);
+  if (bytesRead > 0) 
+  {
+    std::string request(buffer, bytesRead);
+    std::cout << "Received request: " << request << std::endl;
+
+    std::string responseBody = "<html><body><h1>Hello from server!</h1></body></html>";
+
+    std::string response = "HTTP/1.1 200 OK\r\n";
+    response += "Content-Type: text/html\r\n";
+    response += "Content-Length: " + std::to_string(responseBody.length()) + "\r\n";
+    response += "\r\n";
+    response += responseBody;
+
+    ssize_t bytesSent = send(clientSocket, response.c_str(), response.length(), 0);
+    if (bytesSent < 0) {
+        std::cerr << "Error sending response to client" << std::endl;
+    }
+  }
+
+  close(clientSocket);
+}
+
 
 int main() {
+
+  int serverSocket, newSocket;
+  struct sockaddr_in serverAddress, clientAddress;
+  const char* response = "Hello, client! This is the server.";
+  int port = 8080; // Replace with your desired server port
+  const char* destinationAddress = "192.168.0.100"; // Replace with your destination IP address
+  int destinationPort = 8888; // Replace with your destination port
+  char buffer[1024] = {0};
+
+  // Create the socket
+  if ((serverSocket = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+    std::cerr << "Failed to create socket." << std::endl;
+    return 1;
+  }
+
+  // Set up the server address
+  serverAddress.sin_family = AF_INET;
+  serverAddress.sin_addr.s_addr = INADDR_ANY;
+  serverAddress.sin_port = htons(port);
+  
+  // Bind the socket to the specified port
+    if (::bind(serverSocket, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) < 0) {
+      std::cerr << "Failed to bind socket to port." << std::endl;
+      return 1;
+    }
+
+  // Listen for incoming connections
+  if (listen(serverSocket, 3) < 0) {
+    std::cerr << "Failed to listen for connections." << std::endl;
+    return 1;
+  }
+  
+  std::cout << "Server is listening on port " << port << std::endl;
+
+  while (true) 
+  {
+    struct sockaddr_in clientAddress{};
+    socklen_t clientAddressLength = sizeof(clientAddress);
+
+    int clientSocket = accept(serverSocket, reinterpret_cast<struct sockaddr*>(&clientAddress), &clientAddressLength);
+    if (clientSocket < 0) {
+      std::cerr << "Error accepting client connection" << std::endl;
+      continue;
+    }
+    std::cout << "New client connected" << std::endl;
+    handleClient(clientSocket);
+
+  }
+
+
+
   std::istringstream configInput(
         "192.168.1.1 98.149.235.132\n"
         "0.0.0.0\n"
@@ -37,6 +120,8 @@ int main() {
 }
 
 
+
+
 // int main() {
 //   std::string szLine;
 
@@ -53,4 +138,5 @@ int main() {
 
 //   return 0;
 // }
+
 
