@@ -1,10 +1,10 @@
 COMPILER = g++
 CFLAGS = -Wall -ggdb -O0
-INCL_PATHS =
+INCL_PATHS = config_parser.cpp
 
 all: server
 
-server: main.cpp
+server: main.cpp $(INCL_PATHS)
 	$(COMPILER) -std=c++20 $(INCL_PATHS) $< -o $@ $(CFLAGS)
 
 clean:
