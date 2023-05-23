@@ -39,17 +39,13 @@ void handleClient(int clientSocket) {
 
 int main() {
 
-  int serverSocket, newSocket;
-  struct sockaddr_in serverAddress, clientAddress;
-  const char* response = "Hello, client! This is the server.";
-  int port = 8080; // Replace with your desired server port
-  const char* destinationAddress = "192.168.0.100"; // Replace with your destination IP address
-  int destinationPort = 8888; // Replace with your destination port
-  char buffer[1024] = {0};
+  int serverSocket;
+  struct sockaddr_in serverAddress;
+  int port = 5152; // Replace with your desired server port
 
   // Create the socket
   if ((serverSocket = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
-    std::cerr << "Failed to create socket." << std::endl;
+    perror("Failed to create socket.");
     return 1;
   }
 
@@ -57,16 +53,16 @@ int main() {
   serverAddress.sin_family = AF_INET;
   serverAddress.sin_addr.s_addr = INADDR_ANY;
   serverAddress.sin_port = htons(port);
-  
+
   // Bind the socket to the specified port
     if (::bind(serverSocket, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) < 0) {
-      std::cerr << "Failed to bind socket to port." << std::endl;
+      perror("Failed to bind socket to port.");
       return 1;
     }
 
   // Listen for incoming connections
   if (listen(serverSocket, 3) < 0) {
-    std::cerr << "Failed to listen for connections." << std::endl;
+    perror("Failed to listen for connections.");
     return 1;
   }
   
