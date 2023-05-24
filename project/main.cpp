@@ -31,10 +31,51 @@ void handleClient(int clientSocket) {
   }
 
   // forward packet locally
-  
 
   close(clientSocket);
 }
+
+std::string calculateNetworkAddress(const std::string& ipAddress, const std::string& subnetMask) {
+  std::vector<int> ipParts;
+  std::vector<int> maskParts;
+  std::vector<int> networkParts;
+
+  // Parse IP address
+  std::string part;
+  std::istringstream ipStream(ipAddress);
+  while (getline(ipStream, part, '.')) {
+    ipParts.push_back(std::stoi(part));
+  }
+
+  // Parse subnet mask
+  std::istringstream maskStream(subnetMask);
+  while (getline(maskStream, part, '.')) {
+    maskParts.push_back(std::stoi(part));
+  }
+
+  // Calculate network address by performing bitwise AND
+  for (size_t i = 0; i < ipParts.size(); ++i) {
+    networkParts.push_back(ipParts[i] & maskParts[i]);
+  }
+
+  // Construct network address string
+  std::string networkAddress;
+  for (size_t i = 0; i < networkParts.size(); ++i) {
+    networkAddress += std::to_string(networkParts[i]);
+    if (i < networkParts.size() - 1) {
+      networkAddress += ".";
+    }
+  }
+  return networkAddress;
+}
+
+bool isSameSubnet(const std::string first,const std::string second)
+{
+  if (first == second)
+    return true;
+  return false;
+}
+
 
 
 int main() {
@@ -43,7 +84,7 @@ int main() {
   string temp;
   while (getline(cin, temp))
   {
-      configInput += temp + "\n";
+    configInput += temp + "\n";
   }
   
   ConfigParser parser(configInput);
