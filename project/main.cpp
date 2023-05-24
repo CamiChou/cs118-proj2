@@ -13,23 +13,25 @@ using namespace std;
 const int BUFFER_SIZE = 8192;
 
 void handleClient(int clientSocket) {
-  
-
   char buffer[BUFFER_SIZE];
+  Datagram datagram;
 
   ssize_t bytesRead = recv(clientSocket, buffer, BUFFER_SIZE, 0);
   if (bytesRead > 0) {
-    std::string request(buffer, bytesRead);
-    std::stringstream ss;
-    ss << std::hex << std::setfill('0');
-    for (char c : request) {
-      ss << std::setw(2) << static_cast<int>(static_cast<unsigned char>(c));
-    }
-    std::string hexRequest = ss.str();
-    std::cout << "Received request in hex: \n" << hexRequest << std::endl;
+      std::string request(buffer, bytesRead);
+      std::stringstream ss;
+      ss << std::hex << std::setfill('0');
+      for (char c : request) {
+          ss << std::setw(2) << static_cast<int>(static_cast<unsigned char>(c));
+      }
+      std::string hexRequest = ss.str();
+      std::cout << "Received request in hex: \n" << hexRequest << std::endl;
 
-    Datagram datagram = parseIPDatagram(hexRequest);
-}
+      datagram = parseIPDatagram(hexRequest);
+  }
+
+  // forward packet locally
+
   close(clientSocket);
 }
 
