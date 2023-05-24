@@ -63,3 +63,18 @@ void ConfigParser::parseNaptConfig(){
         naptConfig.lanToWanMap[make_pair(lanIp, lanPort)] = wanPort;
     }
 }
+
+void ConfigParser::print() const {
+    cout << "PRINTING CONFIGURATION" << endl;
+    cout << "Router IP: " << ipConfig.lanIP << endl;
+    cout << "Router WAN IP: " << ipConfig.wanIP << endl;
+    for (const auto& clientIp : ipConfig.clientIps) {
+        cout << "Client IP: " << clientIp << endl;
+    }
+
+    for (const auto& [lanIp, lanPort] : naptConfig.lanToWanMap) {
+        cout << "LAN IP: " << lanIp.first << "LAN Port:" << lanIp.second << endl;
+        cout << "WAN Port: " << lanPort << endl;
+    }
+    cout << endl;
+}

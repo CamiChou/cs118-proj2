@@ -27,7 +27,7 @@ int hexToDecimal(std::string hex) {
 // Parse IP header
 IPHeader parseIPHeader(const std::string& hexString) {
     
-    printf("Parsing IP header...\n");
+    // printf("Parsing IP header...\n");
     IPHeader ipHeader;
     ipHeader.version = hexToDecimal(hexString.substr(0, 1));
     ipHeader.ihl = hexToDecimal(hexString.substr(1, 1));
@@ -62,7 +62,6 @@ IPHeader parseIPHeader(const std::string& hexString) {
 UDPHeader parseUDPHeader(const std::string& hexString) {
     printf("Parsing UDP header...\n");
 
-    // print hexstring
     std::cout << "UDP Header Hexstring: " << hexString << std::endl;
     UDPHeader udpHeader;
     udpHeader.sourcePort = hexString.substr(0, 4);
@@ -109,7 +108,6 @@ TCPHeader parseTCPHeader(const std::string& hexString) {
     return tcpHeader;
 }
 
-// Parse IP datagram
 Datagram parseIPDatagram(const std::string& hexString) {
     printf("Parsing datagram...\n");
     fflush(stdout);

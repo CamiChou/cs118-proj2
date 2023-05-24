@@ -52,10 +52,6 @@ struct Datagram {
     TransportHeader transportHeader;
 };
 
-// unsigned int hexToDecimal(std::string hex);
-
-// std::string hexToIP(std::string hex);
-
 Datagram parseIPDatagram(const std::string& hexString);
 
 #endif //DATAGRAM_PARSER_H
