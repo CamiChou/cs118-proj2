@@ -37,87 +37,7 @@ void handleClient(int clientSocket) {
 }
 
 
-int main() {
 
-  int serverSocket, newSocket;
-  struct sockaddr_in serverAddress, clientAddress;
-  const char* response = "Hello, client! This is the server.";
-  int port = 8080; // Replace with your desired server port
-  const char* destinationAddress = "192.168.0.100"; // Replace with your destination IP address
-  int destinationPort = 8888; // Replace with your destination port
-  char buffer[1024] = {0};
-
-  // Create the socket
-  if ((serverSocket = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
-    std::cerr << "Failed to create socket." << std::endl;
-    return 1;
-  }
-
-  // Set up the server address
-  serverAddress.sin_family = AF_INET;
-  serverAddress.sin_addr.s_addr = INADDR_ANY;
-  serverAddress.sin_port = htons(port);
-  
-  // Bind the socket to the specified port
-    if (::bind(serverSocket, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) < 0) {
-      std::cerr << "Failed to bind socket to port." << std::endl;
-      return 1;
-    }
-
-  // Listen for incoming connections
-  if (listen(serverSocket, 3) < 0) {
-    std::cerr << "Failed to listen for connections." << std::endl;
-    return 1;
-  }
-  
-  std::cout << "Server is listening on port " << port << std::endl;
-
-  while (true) 
-  {
-    struct sockaddr_in clientAddress{};
-    socklen_t clientAddressLength = sizeof(clientAddress);
-
-    int clientSocket = accept(serverSocket, reinterpret_cast<struct sockaddr*>(&clientAddress), &clientAddressLength);
-    if (clientSocket < 0) {
-      std::cerr << "Error accepting client connection" << std::endl;
-      continue;
-    }
-    std::cout << "New client connected" << std::endl;
-    handleClient(clientSocket);
-
-  }
-
-
-
-  std::istringstream configInput(
-        "192.168.1.1 98.149.235.132\n"
-        "0.0.0.0\n"
-        "192.168.1.100\n"
-        "192.168.1.200\n"
-        "\n"
-        "192.168.1.100 8080 8080\n"
-        "192.168.1.200 9000 443\n"
-        "\n"
-    );
-
-  ConfigParser parser(configInput);
-  parser.parse();
-
-  auto ipConfig = parser.getIpConfig();
-  auto naptConfig = parser.getNaptConfig();
-
-  // print ipConfig
-  std::cout << "Router IP: " << ipConfig.lanIP << std::endl;
-  std::cout << "Router WAN IP: " << ipConfig.wanIP << std::endl;
-  for (const auto& clientIp : ipConfig.clientIps) {
-      std::cout << "Client IP: " << clientIp << std::endl;
-  }
-
-  // print naptConfig
-  for (const auto& [lanIp, entry] : naptConfig.lanToWanMap) {
-      std::cout << "NAPT Entry: " << lanIp.first << ", " << lanIp.second << ", " << entry << std::endl;
-  }
-}
 
 
 
@@ -139,4 +59,90 @@ int main() {
 //   return 0;
 // }
 
+
+
+int main() {
+  // Parse the configuration files
+  string configInput;
+  string temp;
+  while (getline(cin, temp))
+  {
+      configInput += temp + "\n";
+  }
+  
+  ConfigParser parser(configInput);
+  parser.parse();
+
+  auto ipConfig = parser.getIpConfig();
+  auto naptConfig = parser.getNaptConfig();
+
+  // print ipConfig
+  std::cout << "Router IP: " << ipConfig.lanIP << std::endl;
+  std::cout << "Router WAN IP: " << ipConfig.wanIP << std::endl;
+  for (const auto& clientIp : ipConfig.clientIps) {
+      std::cout << "Client IP: " << clientIp << std::endl;
+  }
+
+  // print naptConfig
+  for (const auto& [lanIp, entry] : naptConfig.lanToWanMap) {
+      std::cout << "NAPT Entry: " << lanIp.first << ", " << lanIp.second << ", " << entry << std::endl;
+  }
+
+
+  // ======================
+  int serverSocket;
+  struct sockaddr_in serverAddress;
+  int port = 5152; // Replace with your desired server port
+
+  // Create the socket
+  if ((serverSocket = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+    perror("Failed to create socket.");
+    return 1;
+  }
+
+  // Set up the server address
+  serverAddress.sin_family = AF_INET;
+  serverAddress.sin_addr.s_addr = INADDR_ANY;
+  serverAddress.sin_port = htons(port);
+
+  // Bind the socket to the specified port
+    if (::bind(serverSocket, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) < 0) {
+      perror("Failed to bind socket to port.");
+      return 1;
+    }
+
+  // Listen for incoming connections
+  if (listen(serverSocket, 3) < 0) {
+    perror("Failed to listen for connections.");
+    return 1;
+  }
+  
+  std::cout << "Server is listening on port " << port << std::endl;
+
+  while (true) 
+  {
+    struct sockaddr_in clientAddress{};
+    socklen_t clientAddressLength = sizeof(clientAddress);
+
+    int clientSocket = accept(serverSocket, reinterpret_cast<struct sockaddr*>(&clientAddress), &clientAddressLength);
+    if (clientSocket < 0) {
+      perror("Error accepting client connection");
+      continue;
+    }
+    std::cout << "New client connected" << clientSocket << std::endl;
+    handleClient(clientSocket);
+
+  }
+
+  // std::istringstream configInput(
+  //       "192.168.1.1 98.149.235.132\n"
+  //       "0.0.0.0\n"
+  //       "192.168.1.100\n"
+  //       "192.168.1.200\n"
+  //       "\n"
+  //       "192.168.1.100 8080 8080\n"
+  //       "192.168.1.200 9000 443\n"
+  //       "\n"
+  //   );
+}
 

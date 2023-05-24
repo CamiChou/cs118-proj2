@@ -18,12 +18,12 @@ struct NaptConfig {
 
 class ConfigParser {
 private:
-    istream& in;
+    string in;
     IpConfig ipConfig;
     NaptConfig naptConfig;
 
 public:
-    ConfigParser(istream& in);
+    ConfigParser(string in);
     IpConfig getIpConfig() const;
     NaptConfig getNaptConfig() const;
     void parse();
