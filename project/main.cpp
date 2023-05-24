@@ -13,54 +13,67 @@ using namespace std;
 const int BUFFER_SIZE = 8192;
 
 void handleClient(int clientSocket) {
-  // char buffer[BUFFER_SIZE];
-
-  // ssize_t bytesRead = recv(clientSocket, buffer, BUFFER_SIZE, 0);
-  // if (bytesRead > 0) 
-  // {
-  //   std::string request(buffer, bytesRead);
-    
-  //   std::stringstream ss;
-  //   ss << std::hex << std::setfill('0');
-  //   for (char c : request) {
-  //       ss << std::setw(2) << static_cast<int>(static_cast<unsigned char>(c)) << " ";
-  //   }
-  //   std::string hexRequest = ss.str();
-  //   std::cout << "Received request in hex: \n" << hexRequest << std::endl;
-
-    
-    // std::string responseBody = "<html><body><h1>Hello from server!</h1></body></html>";
-
-    // std::string response = "HTTP/1.1 200 OK\r\n";
-    // response += "Content-Type: text/html\r\n";
-    // response += "Content-Length: " + std::to_string(responseBody.length()) + "\r\n";
-    // response += "\r\n";
-    // response += responseBody;
-
-    // ssize_t bytesSent = send(clientSocket, response.c_str(), response.length(), 0);
-    // if (bytesSent < 0) {
-    //     std::cerr << "Error sending response to client" << std::endl;
-    // }
-  // }
+  
 
   char buffer[BUFFER_SIZE];
 
   ssize_t bytesRead = recv(clientSocket, buffer, BUFFER_SIZE, 0);
   if (bytesRead > 0) {
-      std::string request(buffer, bytesRead);
-      std::stringstream ss;
-      ss << std::hex << std::setfill('0');
-      for (char c : request) {
-          ss << std::setw(2) << static_cast<int>(static_cast<unsigned char>(c));
-      }
-      std::string hexRequest = ss.str();
-      std::cout << "Received request in hex: \n" << hexRequest << std::endl;
+    std::string request(buffer, bytesRead);
+    std::stringstream ss;
+    ss << std::hex << std::setfill('0');
+    for (char c : request) {
+      ss << std::setw(2) << static_cast<int>(static_cast<unsigned char>(c));
+    }
+    std::string hexRequest = ss.str();
+    std::cout << "Received request in hex: \n" << hexRequest << std::endl;
 
-      Datagram datagram = parseIPDatagram(hexRequest);
-  }
-
+    Datagram datagram = parseIPDatagram(hexRequest);
+}
   close(clientSocket);
 }
+
+std::string calculateNetworkAddress(const std::string& ipAddress, const std::string& subnetMask) {
+  std::vector<int> ipParts;
+  std::vector<int> maskParts;
+  std::vector<int> networkParts;
+
+  // Parse IP address
+  std::string part;
+  std::istringstream ipStream(ipAddress);
+  while (getline(ipStream, part, '.')) {
+    ipParts.push_back(std::stoi(part));
+  }
+
+  // Parse subnet mask
+  std::istringstream maskStream(subnetMask);
+  while (getline(maskStream, part, '.')) {
+    maskParts.push_back(std::stoi(part));
+  }
+
+  // Calculate network address by performing bitwise AND
+  for (size_t i = 0; i < ipParts.size(); ++i) {
+    networkParts.push_back(ipParts[i] & maskParts[i]);
+  }
+
+  // Construct network address string
+  std::string networkAddress;
+  for (size_t i = 0; i < networkParts.size(); ++i) {
+    networkAddress += std::to_string(networkParts[i]);
+    if (i < networkParts.size() - 1) {
+      networkAddress += ".";
+    }
+  }
+  return networkAddress;
+}
+
+bool isSameSubnet(const std::string first,const std::string second)
+{
+  if (first == second)
+    return true;
+  return false;
+}
+
 
 
 int main() {
@@ -69,7 +82,7 @@ int main() {
   string temp;
   while (getline(cin, temp))
   {
-      configInput += temp + "\n";
+    configInput += temp + "\n";
   }
   
   ConfigParser parser(configInput);
