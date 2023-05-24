@@ -24,6 +24,19 @@ int hexToDecimal(std::string hex) {
     return decimal;
 }
 
+std::string hexToIP(const std::string &hex) {
+    std::stringstream ss;
+    ss << std::dec;
+    for (int i = 0; i < hex.length(); i += 2) {
+        std::string byte = hex.substr(i, 2);
+        int val = std::stoi(byte, nullptr, 16);
+        if (i > 0) ss << ".";
+        ss << val;
+    }
+    return ss.str();
+}
+
+
 // Parse IP header
 IPHeader parseIPHeader(const std::string& hexString) {
     
@@ -38,8 +51,8 @@ IPHeader parseIPHeader(const std::string& hexString) {
     ipHeader.ttl = hexToDecimal(hexString.substr(16, 2));
     ipHeader.protocol = hexToDecimal(hexString.substr(18, 2));
     ipHeader.headerChecksum = hexString.substr(20, 4);
-    ipHeader.sourceIP = hexString.substr(24, 8);
-    ipHeader.destinationIP = hexString.substr(32, 8);
+    ipHeader.sourceIP = hexToIP(hexString.substr(24, 8));
+    ipHeader.destinationIP = hexToIP(hexString.substr(32, 8));
 
     std::cout << "IP Version: " << ipHeader.version << std::endl;
     std::cout << "IP IHL: " << ipHeader.ihl << std::endl;
