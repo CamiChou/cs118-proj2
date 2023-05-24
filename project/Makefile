@@ -1,6 +1,6 @@
 COMPILER = g++
 CFLAGS = -Wall -ggdb -O0
-INCL_PATHS = config_parser.cpp
+INCL_PATHS = config_parser.cpp datagram_parser.cpp
 
 all: server
 

@@ -27,6 +27,7 @@ public:
     IpConfig getIpConfig() const;
     NaptConfig getNaptConfig() const;
     void parse();
+    void print() const;
 
 private:
     void parseIpConfig();
