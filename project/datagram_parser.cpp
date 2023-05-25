@@ -77,16 +77,16 @@ UDPHeader parseUDPHeader(const std::string& hexString) {
 
     std::cout << "UDP Header Hexstring: " << hexString << std::endl;
     UDPHeader udpHeader;
-    udpHeader.sourcePort = hexString.substr(0, 4);
-    udpHeader.destinationPort = hexString.substr(4, 4);
+    udpHeader.sourcePort = hexToDecimal(hexString.substr(0, 4));
+    udpHeader.destinationPort = hexToDecimal(hexString.substr(4, 4));
     udpHeader.length = hexToDecimal(hexString.substr(8, 4));
     udpHeader.checksum = hexString.substr(12, 4);
 
     // std::cout << "Transport Protocol: UDP" << std::endl;
-    // std::cout << "UDP Source Port: " << udpHeader.sourcePort << std::endl;
-    // std::cout << "UDP Destination Port: " << udpHeader.destinationPort << std::endl;
-    // std::cout << "UDP Length: " << udpHeader.length << std::endl;
-    // std::cout << "UDP Checksum: " << udpHeader.checksum << std::endl;
+    std::cout << "UDP Source Port: " << udpHeader.sourcePort << std::endl;
+    std::cout << "UDP Destination Port: " << udpHeader.destinationPort << std::endl;
+    std::cout << "UDP Length: " << udpHeader.length << std::endl;
+    std::cout << "UDP Checksum: " << udpHeader.checksum << std::endl;
     // std::cout << std::endl;
     // fflush(stdout);
 
@@ -98,8 +98,8 @@ TCPHeader parseTCPHeader(const std::string& hexString) {
     printf("Parsing TCP header...\n");
 
     TCPHeader tcpHeader;
-    tcpHeader.sourcePort = hexString.substr(0, 4);
-    tcpHeader.destinationPort = hexString.substr(4, 4);
+    tcpHeader.sourcePort = hexToDecimal(hexString.substr(0, 4));
+    tcpHeader.destinationPort = hexToDecimal(hexString.substr(4, 4));
     tcpHeader.sequenceNumber = hexToDecimal(hexString.substr(8, 8));
     tcpHeader.acknowledgmentNumber = hexToDecimal(hexString.substr(16, 8));
     tcpHeader.flags = hexString.substr(24, 4);

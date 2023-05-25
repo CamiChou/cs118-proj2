@@ -5,19 +5,19 @@
 #include <variant>
 
 struct UDPHeader {
-    UDPHeader() : sourcePort(""), destinationPort(""), length(0), checksum("") {}
+    UDPHeader() : sourcePort(0), destinationPort(0), length(0), checksum("") {}
 
-    std::string sourcePort;
-    std::string destinationPort;
+    unsigned int sourcePort;
+    unsigned int destinationPort;
     unsigned int length;
     std::string checksum;
 };
 
 struct TCPHeader {
-    TCPHeader() : sourcePort(""), destinationPort(""), sequenceNumber(0), acknowledgmentNumber(0), flags(""), windowSize(0), checksum(""), urgentPointer(0) {}
+    TCPHeader() : sourcePort(0), destinationPort(0), sequenceNumber(0), acknowledgmentNumber(0), flags(""), windowSize(0), checksum(""), urgentPointer(0) {}
 
-    std::string sourcePort;
-    std::string destinationPort;
+    unsigned int sourcePort;
+    unsigned int destinationPort;
     unsigned int sequenceNumber;
     unsigned int acknowledgmentNumber;
     std::string flags;
