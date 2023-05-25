@@ -12,29 +12,6 @@ using namespace std;
 
 const int BUFFER_SIZE = 8192;
 
-void handleClient(int clientSocket) {
-  char buffer[BUFFER_SIZE];
-  Datagram datagram;
-
-  ssize_t bytesRead = recv(clientSocket, buffer, BUFFER_SIZE, 0);
-  if (bytesRead > 0) {
-      std::string request(buffer, bytesRead);
-      std::stringstream ss;
-      ss << std::hex << std::setfill('0');
-      for (char c : request) {
-          ss << std::setw(2) << static_cast<int>(static_cast<unsigned char>(c));
-      }
-      std::string hexRequest = ss.str();
-      std::cout << "Received request in hex: \n" << hexRequest << std::endl;
-
-      datagram = parseIPDatagram(hexRequest);
-  }
-
-  // forward packet locally
-
-  close(clientSocket);
-}
-
 std::string calculateNetworkAddress(const std::string& ipAddress, const std::string& subnetMask) {
   std::vector<int> ipParts;
   std::vector<int> maskParts;
@@ -69,14 +46,45 @@ std::string calculateNetworkAddress(const std::string& ipAddress, const std::str
   return networkAddress;
 }
 
-bool isSameSubnet(const std::string first,const std::string second)
+bool isSameSubnet(const std::string first,const std::string second, const std::string subnetMask)
 {
-  if (first == second)
-    return true;
-  return false;
+  return calculateNetworkAddress(first, subnetMask) == calculateNetworkAddress(second, subnetMask);
 }
 
+void handleClient(int clientSocket) {
+  char buffer[BUFFER_SIZE];
+  Datagram datagram;
 
+  ssize_t bytesRead = recv(clientSocket, buffer, BUFFER_SIZE, 0);
+  if (bytesRead > 0) {
+      std::string request(buffer, bytesRead);
+      std::stringstream ss;
+      ss << std::hex << std::setfill('0');
+      for (char c : request) {
+          ss << std::setw(2) << static_cast<int>(static_cast<unsigned char>(c));
+      }
+      std::string hexRequest = ss.str();
+      std::cout << "Received request in hex: \n" << hexRequest << std::endl;
+      fflush(stdout);
+      datagram = parseIPDatagram(hexRequest);
+  }
+
+  // forward packet locally
+  std::string subnetMask24 = "255.255.255.0";
+
+  // IpConfig ipConfig = parser.getIpConfig();
+  // NaptConfig naptConfig = parser.getNaptConfig();
+
+  // print source and destination ips
+  std::cout << "Source IP: " << datagram.ipHeader.sourceIP << std::endl;
+  std::cout << "Destination IP: " << datagram.ipHeader.destinationIP << std::endl;
+  // check if the source and destination are on the same subnet
+  std::cout << "Same subnet: = " << isSameSubnet(datagram.ipHeader.sourceIP, datagram.ipHeader.destinationIP, subnetMask24) << std::endl;
+  fflush(stdout);
+  
+
+  close(clientSocket);
+}
 
 int main() {
   // Parse the configuration files
@@ -89,7 +97,7 @@ int main() {
   
   ConfigParser parser(configInput);
   parser.parse();
-  parser.print();
+  // parser.print();
  
 
   // Create server socket
@@ -134,7 +142,6 @@ int main() {
     }
     std::cout << "New client connected" << clientSocket << std::endl;
     handleClient(clientSocket);
-
   }
 }
 

@@ -54,19 +54,19 @@ IPHeader parseIPHeader(const std::string& hexString) {
     ipHeader.sourceIP = hexToIP(hexString.substr(24, 8));
     ipHeader.destinationIP = hexToIP(hexString.substr(32, 8));
 
-    std::cout << "IP Version: " << ipHeader.version << std::endl;
-    std::cout << "IP IHL: " << ipHeader.ihl << std::endl;
-    std::cout << "IP Type of Service: " << ipHeader.typeOfService << std::endl;
-    std::cout << "IP Total Length: " << ipHeader.totalLength << std::endl;
-    std::cout << "IP Identification: " << ipHeader.identification << std::endl;
-    std::cout << "IP Flags and Fragment Offset: " << ipHeader.flagsAndFragmentOffset << std::endl;
-    std::cout << "IP TTL: " << ipHeader.ttl << std::endl;
-    std::cout << "IP Protocol: " << ipHeader.protocol << std::endl;
-    std::cout << "IP Header Checksum: " << ipHeader.headerChecksum << std::endl;
-    std::cout << "IP Source Address: " << ipHeader.sourceIP << std::endl;
-    std::cout << "IP Destination Address: " << ipHeader.destinationIP << std::endl;
-    std::cout << std::endl;
-    fflush(stdout);
+    // std::cout << "IP Version: " << ipHeader.version << std::endl;
+    // std::cout << "IP IHL: " << ipHeader.ihl << std::endl;
+    // std::cout << "IP Type of Service: " << ipHeader.typeOfService << std::endl;
+    // std::cout << "IP Total Length: " << ipHeader.totalLength << std::endl;
+    // std::cout << "IP Identification: " << ipHeader.identification << std::endl;
+    // std::cout << "IP Flags and Fragment Offset: " << ipHeader.flagsAndFragmentOffset << std::endl;
+    // std::cout << "IP TTL: " << ipHeader.ttl << std::endl;
+    // std::cout << "IP Protocol: " << ipHeader.protocol << std::endl;
+    // std::cout << "IP Header Checksum: " << ipHeader.headerChecksum << std::endl;
+    // std::cout << "IP Source Address: " << ipHeader.sourceIP << std::endl;
+    // std::cout << "IP Destination Address: " << ipHeader.destinationIP << std::endl;
+    // std::cout << std::endl;
+    // fflush(stdout);
 
     return ipHeader;
 }
@@ -82,13 +82,13 @@ UDPHeader parseUDPHeader(const std::string& hexString) {
     udpHeader.length = hexToDecimal(hexString.substr(8, 4));
     udpHeader.checksum = hexString.substr(12, 4);
 
-    std::cout << "Transport Protocol: UDP" << std::endl;
-    std::cout << "UDP Source Port: " << udpHeader.sourcePort << std::endl;
-    std::cout << "UDP Destination Port: " << udpHeader.destinationPort << std::endl;
-    std::cout << "UDP Length: " << udpHeader.length << std::endl;
-    std::cout << "UDP Checksum: " << udpHeader.checksum << std::endl;
-    std::cout << std::endl;
-    fflush(stdout);
+    // std::cout << "Transport Protocol: UDP" << std::endl;
+    // std::cout << "UDP Source Port: " << udpHeader.sourcePort << std::endl;
+    // std::cout << "UDP Destination Port: " << udpHeader.destinationPort << std::endl;
+    // std::cout << "UDP Length: " << udpHeader.length << std::endl;
+    // std::cout << "UDP Checksum: " << udpHeader.checksum << std::endl;
+    // std::cout << std::endl;
+    // fflush(stdout);
 
     return udpHeader;
 }
@@ -107,16 +107,16 @@ TCPHeader parseTCPHeader(const std::string& hexString) {
     tcpHeader.checksum = hexString.substr(32, 4);
     tcpHeader.urgentPointer = hexToDecimal(hexString.substr(36, 4));
 
-    std::cout << "TCP Source Port: " << tcpHeader.sourcePort << std::endl;
-    std::cout << "TCP Destination Port: " << tcpHeader.destinationPort << std::endl;
-    std::cout << "TCP Sequence Number: " << tcpHeader.sequenceNumber << std::endl;
-    std::cout << "TCP Acknowledgment Number: " << tcpHeader.acknowledgmentNumber << std::endl;
-    std::cout << "TCP Flags: " << tcpHeader.flags << std::endl;
-    std::cout << "TCP Window Size: " << tcpHeader.windowSize << std::endl;
-    std::cout << "TCP Checksum: " << tcpHeader.checksum << std::endl;
-    std::cout << "TCP Urgent Pointer: " << tcpHeader.urgentPointer << std::endl;  
-    std::cout << std::endl;
-    fflush(stdout);
+    // std::cout << "TCP Source Port: " << tcpHeader.sourcePort << std::endl;
+    // std::cout << "TCP Destination Port: " << tcpHeader.destinationPort << std::endl;
+    // std::cout << "TCP Sequence Number: " << tcpHeader.sequenceNumber << std::endl;
+    // std::cout << "TCP Acknowledgment Number: " << tcpHeader.acknowledgmentNumber << std::endl;
+    // std::cout << "TCP Flags: " << tcpHeader.flags << std::endl;
+    // std::cout << "TCP Window Size: " << tcpHeader.windowSize << std::endl;
+    // std::cout << "TCP Checksum: " << tcpHeader.checksum << std::endl;
+    // std::cout << "TCP Urgent Pointer: " << tcpHeader.urgentPointer << std::endl;  
+    // std::cout << std::endl;
+    // fflush(stdout);
     
     return tcpHeader;
 }
