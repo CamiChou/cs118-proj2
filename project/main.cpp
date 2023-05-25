@@ -81,7 +81,73 @@ void handleClient(int clientSocket) {
   // check if the source and destination are on the same subnet
   std::cout << "Same subnet: = " << isSameSubnet(datagram.ipHeader.sourceIP, datagram.ipHeader.destinationIP, subnetMask24) << std::endl;
   fflush(stdout);
+
+  // Create server socket
+  int destSocket;
+  struct sockaddr_in destAddress;
+  int destPort;
+  if (datagram.ipHeader.protocol == 6) {
+    // TCP
+    if (std::holds_alternative<TCPHeader>(datagram.transportHeader.header)) {
+        destPort = std::get<TCPHeader>(datagram.transportHeader.header).destinationPort;
+    } else {
+        std::cout << "TransportHeader variant doesn't hold TCPHeader." << std::endl;
+        return;
+    }
+} else if (datagram.ipHeader.protocol == 17) {
+    // UDP
+    if (std::holds_alternative<UDPHeader>(datagram.transportHeader.header)) {
+        destPort = std::get<UDPHeader>(datagram.transportHeader.header).destinationPort;
+    } else {
+        std::cout << "TransportHeader variant doesn't hold UDPHeader." << std::endl;
+        return;
+    }
+} else {
+    std::cout << "Unsupported protocol: " << datagram.ipHeader.protocol << std::endl;
+    return;
+}
+
+  // Create the socket
+  if ((destSocket = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+    perror("Failed to create socket.");
+    return;
+  }
+
+  // Set up the server address
+  destAddress.sin_family = AF_INET;
+  destAddress.sin_addr.s_addr = INADDR_ANY;
+  destAddress.sin_port = htons(destPort);
+
+  // Bind the socket to the specified port
+  if (::bind(destSocket, (struct sockaddr*)&destAddress, sizeof(destAddress)) < 0) {
+    perror("Failed to bind socket to port.");
+    return;
+  }
+
+  // Listen for incoming connections
+  if (listen(destSocket, 3) < 0) {
+    perror("Failed to listen for connections.");
+    return;
+  }
   
+  std::cout << "Server is listening on port " << destPort << std::endl;
+
+  // froward packet to destPort
+  send(destSocket, buffer, bytesRead, 0);
+
+  // while (true) 
+  // {
+  //   struct sockaddr_in clientAddress{};
+  //   socklen_t clientAddressLength = sizeof(clientAddress);
+
+  //   int clientSocket = accept(serverSocket, reinterpret_cast<struct sockaddr*>(&clientAddress), &clientAddressLength);
+  //   if (clientSocket < 0) {
+  //     perror("Error accepting client connection");
+  //     continue;
+  //   }
+  //   std::cout << "New client connected" << clientSocket << std::endl;
+  //   handleClient(clientSocket);
+  // }
 
   close(clientSocket);
 }
@@ -140,7 +206,7 @@ int main() {
       perror("Error accepting client connection");
       continue;
     }
-    std::cout << "New client connected" << clientSocket << std::endl;
+    std::cout << "New client connected: " << clientSocket << std::endl;
     handleClient(clientSocket);
   }
 }
