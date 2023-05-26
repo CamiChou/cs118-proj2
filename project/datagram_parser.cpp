@@ -2,6 +2,8 @@
 #include <sstream>
 #include <stdexcept>
 #include <iostream>
+#include <netinet/ip.h>
+#include <arpa/inet.h>
 
 int hexToDecimal(std::string hex) {
     int decimal = 0;
@@ -27,7 +29,7 @@ int hexToDecimal(std::string hex) {
 std::string hexToIP(const std::string &hex) {
     std::stringstream ss;
     ss << std::dec;
-    for (int i = 0; i < hex.length(); i += 2) {
+    for (size_t i = 0; i < hex.length(); i += 2) {
         std::string byte = hex.substr(i, 2);
         int val = std::stoi(byte, nullptr, 16);
         if (i > 0) ss << ".";
@@ -47,12 +49,14 @@ IPHeader parseIPHeader(const std::string& hexString) {
     ipHeader.typeOfService = hexToDecimal(hexString.substr(2, 2));
     ipHeader.totalLength = hexToDecimal(hexString.substr(4, 4));
     ipHeader.identification = hexToDecimal(hexString.substr(8, 4));
-    ipHeader.flagsAndFragmentOffset = hexString.substr(12, 4);
+    ipHeader.flagsAndFragmentOffset = hexToDecimal(hexString.substr(12, 4));
     ipHeader.ttl = hexToDecimal(hexString.substr(16, 2));
     ipHeader.protocol = hexToDecimal(hexString.substr(18, 2));
     ipHeader.headerChecksum = hexToDecimal(hexString.substr(20, 4));
     ipHeader.sourceIP = hexToIP(hexString.substr(24, 8));
     ipHeader.destinationIP = hexToIP(hexString.substr(32, 8));
+    ipHeader.optionsAndPadding = hexToDecimal(hexString.substr(40, 8));
+
 
     // std::cout << "IP Version: " << ipHeader.version << std::endl;
     // std::cout << "IP IHL: " << ipHeader.ihl << std::endl;
@@ -143,14 +147,24 @@ Datagram parseIPDatagram(const std::string& hexString) {
     return datagram;
 }
 
-void IPHeader::decrementTTL() {
-    this->ttl--;
-}
+struct iphdr DatagramToIphdr(const Datagram& datagram) {
+    struct iphdr ip_header;
 
-void UDPHeader::recomputeChecksum() {
-    return;
-}
+    // Convert version and ihl into a single byte
+    ip_header.version = datagram.ipHeader.version;
+    ip_header.ihl = datagram.ipHeader.ihl;
 
-void TCPHeader::recomputeChecksum() {
-    return;
+    ip_header.tos = datagram.ipHeader.typeOfService;
+    ip_header.tot_len = htons(datagram.ipHeader.totalLength);
+    ip_header.id = htons(datagram.ipHeader.identification);
+    ip_header.frag_off = htons(datagram.ipHeader.flagsAndFragmentOffset);
+    ip_header.ttl = datagram.ipHeader.ttl;
+    ip_header.protocol = datagram.ipHeader.protocol;
+    ip_header.check = htons(datagram.ipHeader.headerChecksum);
+
+    // Convert source and destination IP addresses from dotted-decimal format to network byte order
+    inet_pton(AF_INET, datagram.ipHeader.sourceIP.c_str(), &(ip_header.saddr));
+    inet_pton(AF_INET, datagram.ipHeader.destinationIP.c_str(), &(ip_header.daddr));
+
+    return ip_header;
 }

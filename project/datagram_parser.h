@@ -30,20 +30,20 @@ struct TCPHeader {
 
 struct IPHeader {
     IPHeader() : version(0), ihl(0), typeOfService(0), totalLength(0), identification(0), 
-    flagsAndFragmentOffset(""), ttl(0), protocol(0), headerChecksum(0), sourceIP(""), destinationIP("") {} 
+    flagsAndFragmentOffset(0), ttl(0), protocol(0), headerChecksum(0), sourceIP(""), destinationIP("") {} 
     
     unsigned int version;
     unsigned int ihl;
     unsigned int typeOfService;
     unsigned int totalLength;
     unsigned int identification;
-    std::string flagsAndFragmentOffset;
+    unsigned int flagsAndFragmentOffset;
     unsigned int ttl;
     unsigned int protocol;
     uint16_t headerChecksum;
     std::string sourceIP;
     std::string destinationIP;
-    void decrementTTL();
+    unsigned int optionsAndPadding;
 };
 
 struct TransportHeader {
@@ -53,9 +53,8 @@ struct TransportHeader {
 struct Datagram {
     IPHeader ipHeader;
     TransportHeader transportHeader;
-    
 };
 
 Datagram parseIPDatagram(const std::string& hexString);
-
+struct iphdr DatagramToIphdr(const Datagram& datagram);
 #endif //DATAGRAM_PARSER_H
