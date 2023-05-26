@@ -8,6 +8,9 @@ IpConfig ConfigParser::getIpConfig() const{
 NaptConfig ConfigParser::getNaptConfig() const{
     return naptConfig;
 }
+map<pair<string, int>, int> NaptConfig::convertToMap() {
+    return lanToWanMap;
+}
 void ConfigParser::parse(){
     parseIpConfig();
     parseNaptConfig();

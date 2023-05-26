@@ -1,216 +1,95 @@
+#include <string>
+#include <vector>
+#include <map>
+#include <utility>
 #include <iostream>
-#include <sstream>
-#include <cstring>
-#include <pcap.h>
-#include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
-#include <netinet/tcp.h>
-#include <netinet/udp.h>
-#include <netinet/ip_icmp.h>
-#include <string>
-#include <fstream>
-#include <iomanip>
+#include <unistd.h>
+#include <thread>
+#include <cstring>
+#include <arpa/inet.h>
+#include <iomanip> 
 #include "config_parser.h"
 #include "datagram_parser.h"
+
 using namespace std;
 
-const int BUFFER_SIZE = 8192;
+const int BUFFER_SIZE = 2048;
+map<pair<string, int>, int> naptTable;
+map<string, int> address_to_socket;
+vector<string> clientIPs;
 
-std::string calculateNetworkAddress(const std::string& ipAddress, const std::string& subnetMask) {
-  std::vector<int> ipParts;
-  std::vector<int> maskParts;
-  std::vector<int> networkParts;
+unsigned short compute_checksum(unsigned short *addr, int len) {
+  int count = len;
+  unsigned long sum = 0;
 
-  // Parse IP address
-  std::string part;
-  std::istringstream ipStream(ipAddress);
-  while (getline(ipStream, part, '.')) {
-    ipParts.push_back(std::stoi(part));
+  while (count > 1) {
+      sum += *addr++;
+      count -= 2;
   }
 
-  // Parse subnet mask
-  std::istringstream maskStream(subnetMask);
-  while (getline(maskStream, part, '.')) {
-    maskParts.push_back(std::stoi(part));
+  if (count > 0) {
+      sum += *(unsigned char *)addr;
   }
 
-  // Calculate network address by performing bitwise AND
-  for (size_t i = 0; i < ipParts.size(); ++i) {
-    networkParts.push_back(ipParts[i] & maskParts[i]);
+  while (sum >> 16) {
+      sum = (sum & 0xffff) + (sum >> 16);
   }
 
-  // Construct network address string
-  std::string networkAddress;
-  for (size_t i = 0; i < networkParts.size(); ++i) {
-    networkAddress += std::to_string(networkParts[i]);
-    if (i < networkParts.size() - 1) {
-      networkAddress += ".";
-    }
-  }
-  return networkAddress;
+  unsigned short result = ~((unsigned short)sum);
+  return result;
 }
 
-bool isSameSubnet(const std::string first,const std::string second, const std::string subnetMask)
-{
-  return calculateNetworkAddress(first, subnetMask) == calculateNetworkAddress(second, subnetMask);
-}
+int counter = 0;
+void handle_client(int client_socket) {
+  address_to_socket[clientIPs[counter]]=client_socket;
+  cerr << clientIPs[counter]<<" "<<client_socket<<endl;
+  counter++;
 
-
-
-
-
-// Function to calculate the checksum
-unsigned short calculateChecksum(unsigned short* buffer, int size) {
-  unsigned long checksum = 0;
-  while (size > 1)
-  {
-    checksum += *buffer++;
-    size -= sizeof(unsigned short);
-  }
-  if (size)
-    checksum += *(unsigned char*)buffer;
-  checksum = (checksum >> 16) + (checksum & 0xFFFF);
-  checksum += (checksum >> 16);
-  return (unsigned short)(~checksum);
-}
-
-void modifyPacket(const unsigned char* packet, int packetSize, int socket) {
-  // Decrease the TTL value
-  struct ip* ipHeader = (struct ip*)packet;
-  ipHeader->ip_ttl--;
-
-  // Recalculate the checksum
-  ipHeader->ip_sum = 0;
-  ipHeader->ip_sum = calculateChecksum((unsigned short*)ipHeader, ipHeader->ip_hl * 4);
-
-  // Forward the modified packet
-  send(socket, packet, packetSize, 0);
-}
-
-void handleClient(int clientSocket) {
-  char buffer[BUFFER_SIZE];
-  Datagram datagram;
-
-  ssize_t bytesRead = recv(clientSocket, buffer, BUFFER_SIZE, 0);
-  if (bytesRead > 0) {
-    std::string request(buffer, bytesRead);
-    std::stringstream ss;
-    ss << std::hex << std::setfill('0');
-    for (char c : request) {
-        ss << std::setw(2) << static_cast<int>(static_cast<unsigned char>(c));
-    }
-    std::string hexRequest = ss.str();
-    std::cout << "Received request in hex: \n" << hexRequest << std::endl;
-    fflush(stdout);
-    datagram = parseIPDatagram(hexRequest);
-  }
-
-
-  std::cout << "Packet in hex: ";
-  for (ssize_t i = 0; i < bytesRead; ++i) {
-    std::cout << std::hex << std::setfill('0') << std::setw(2) << static_cast<int>(static_cast<unsigned char>(buffer[i])) << " ";
-  }
-  std::cout << std::endl;
-  
-
-  modifyPacket(reinterpret_cast<const unsigned char*>(buffer), bytesRead, clientSocket);
-
-
-  std::cout << "Modified Packet in hex: ";
-  for (ssize_t i = 0; i < bytesRead; ++i) {
-    std::cout << std::hex << std::setfill('0') << std::setw(2) << static_cast<int>(static_cast<unsigned char>(buffer[i])) << " ";
-  }
-  std::cout << std::endl;
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  // forward packet locally
-  std::string subnetMask24 = "255.255.255.0";
-
-  // IpConfig ipConfig = parser.getIpConfig();
-  // NaptConfig naptConfig = parser.getNaptConfig();
-
-  // print source and destination ips
-  std::cout << "Source IP: " << datagram.ipHeader.sourceIP << std::endl;
-  std::cout << "Destination IP: " << datagram.ipHeader.destinationIP << std::endl;
-  // check if the source and destination are on the same subnet
-  std::cout << "Same subnet: = " << isSameSubnet(datagram.ipHeader.sourceIP, datagram.ipHeader.destinationIP, subnetMask24) << std::endl;
+  uint8_t buffer[BUFFER_SIZE];
   fflush(stdout);
 
-  // Create server socket
-  int destSocket;
-  struct sockaddr_in destAddress;
-  int destPort;
-  if (datagram.ipHeader.protocol == 6) {
-    // TCP
-    if (std::holds_alternative<TCPHeader>(datagram.transportHeader.header)) {
-        destPort = std::get<TCPHeader>(datagram.transportHeader.header).destinationPort;
-    } else {
-        std::cout << "TransportHeader variant doesn't hold TCPHeader." << std::endl;
-        return;
+
+  while(true){
+    int num_bytes = recv(client_socket, buffer, BUFFER_SIZE, 0);
+
+    if (num_bytes <= 0) {
+      perror("Empty or Error with receiving packet data");
+      return;
     }
-} else if (datagram.ipHeader.protocol == 17) {
-    // UDP
-    if (std::holds_alternative<UDPHeader>(datagram.transportHeader.header)) {
-        destPort = std::get<UDPHeader>(datagram.transportHeader.header).destinationPort;
-    } else {
-        std::cout << "TransportHeader variant doesn't hold UDPHeader." << std::endl;
-        return;
+
+    std::stringstream ss;
+    for (int i = 0; i < BUFFER_SIZE; ++i) {
+        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(buffer[i]);
     }
-} else {
-    std::cout << "Unsupported protocol: " << datagram.ipHeader.protocol << std::endl;
-    return;
-}
+    std::string hexString = ss.str();
+    Datagram datagram = parseIPDatagram(hexString);
 
-  // Create the socket
-  if ((destSocket = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
-    perror("Failed to create socket.");
-    return;
+    struct iphdr ipheader = DatagramToIphdr(datagram);
+    struct iphdr* iph = &ipheader;
+    
+    iph->ttl -= 1;
+    if (iph->ttl <= 0) {
+      cout << "TTL expired. Dropping packet" << endl;
+      return;
+    }
+
+    iph->check = 0;
+    memcpy(buffer, iph, sizeof(struct iphdr));
+    unsigned short new_checksum = compute_checksum((unsigned short *)buffer, iph->ihl*4);
+    iph->check = new_checksum;
+    memcpy(buffer, iph, sizeof(struct iphdr));
+
+    send(address_to_socket[datagram.ipHeader.destinationIP], buffer, num_bytes, 0);
   }
 
-  // Set up the server address
-  destAddress.sin_family = AF_INET;
-  destAddress.sin_addr.s_addr = INADDR_ANY;
-  destAddress.sin_port = htons(destPort);
-
-  // Bind the socket to the specified port
-  if (::bind(destSocket, (struct sockaddr*)&destAddress, sizeof(destAddress)) < 0) {
-    perror("Failed to bind socket to port.");
-    return;
-  }
-
-  // Listen for incoming connections
-  if (listen(destSocket, 3) < 0) {
-    perror("Failed to listen for connections.");
-    return;
-  }
-  
-  std::cout << "Server is listening on port " << destPort << std::endl;
-
-  // froward packet to destPort
-  send(destSocket, buffer, bytesRead, 0);
-
-
-  close(clientSocket);
+  close(client_socket);
 }
 
 int main() {
-  // Parse the configuration files
   string configInput;
   string temp;
   while (getline(cin, temp))
@@ -221,50 +100,49 @@ int main() {
   ConfigParser parser(configInput);
   parser.parse();
   // parser.print();
- 
 
-  // Create server socket
+  clientIPs.push_back("0.0.0.0");
+  for (auto ip : parser.getIpConfig().clientIps) {
+      clientIPs.push_back(ip);
+  }
+  naptTable = parser.getNaptConfig().convertToMap();
+  // NEED TO MAKE SURE THAT THE NAPT TABLE IS VALID
+
   int serverSocket;
-  struct sockaddr_in serverAddress;
-  int port = 5152; 
+  struct sockaddr_in serverAddr;
+  int port = 5152;
 
-  // Create the socket
-  if ((serverSocket = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
-    perror("Failed to create socket.");
-    return 1;
+  serverSocket = socket(PF_INET, SOCK_STREAM, 0);
+
+  serverAddr.sin_family = AF_INET;
+  serverAddr.sin_port = htons(port);
+  serverAddr.sin_addr.s_addr = INADDR_ANY;
+
+  if(::bind(serverSocket, (struct sockaddr *) &serverAddr, sizeof(serverAddr)) < 0) {
+    perror("bind failed");
+    return -1;
   }
 
-  // Set up the server address
-  serverAddress.sin_family = AF_INET;
-  serverAddress.sin_addr.s_addr = INADDR_ANY;
-  serverAddress.sin_port = htons(port);
-
-  // Bind the socket to the specified port
-    if (::bind(serverSocket, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) < 0) {
-      perror("Failed to bind socket to port.");
-      return 1;
-    }
-
-  // Listen for incoming connections
-  if (listen(serverSocket, 3) < 0) {
-    perror("Failed to listen for connections.");
-    return 1;
+  if (listen(serverSocket, 10) < 0) {
+    perror("listen failed");
+    return -1;
   }
-  
-  std::cout << "Server is listening on port " << port << std::endl;
 
-  while (true) 
-  {
-    struct sockaddr_in clientAddress{};
-    socklen_t clientAddressLength = sizeof(clientAddress);
+  while(1) {
+      cout << "Server waiting for connection...\n" << endl;
 
-    int clientSocket = accept(serverSocket, reinterpret_cast<struct sockaddr*>(&clientAddress), &clientAddressLength);
-    if (clientSocket < 0) {
-      perror("Error accepting client connection");
-      continue;
-    }
-    std::cout << "New client connected: " << clientSocket << std::endl;
-    handleClient(clientSocket);
+      struct sockaddr_in client_address;
+      socklen_t client_len = sizeof(client_address);
+
+      int client_socket = accept(serverSocket, (struct sockaddr*)&client_address, &client_len);
+      if (client_socket < 0) {
+          perror("accept failed");
+          return -1;
+      }
+      cout << "Connection accepted, spawning handler thread...\n" << endl;
+
+      thread client_thread(handle_client, client_socket);
+      client_thread.detach();
   }
+  return 0;
 }
-
