@@ -121,6 +121,7 @@ python3 grader/packet_generate.py < scenarios/setting1.json
 #
 # Check point 2
 #
+
 ```
 
 ### Other notes

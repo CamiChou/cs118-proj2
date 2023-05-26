@@ -52,6 +52,7 @@ void handle_client(int client_socket) {
   uint8_t buffer[BUFFER_SIZE];
   fflush(stdout);
 
+
   while(true){
     int num_bytes = recv(client_socket, buffer, BUFFER_SIZE, 0);
 
@@ -84,6 +85,7 @@ void handle_client(int client_socket) {
 
     send(address_to_socket[datagram.ipHeader.destinationIP], buffer, num_bytes, 0);
   }
+
   close(client_socket);
 }
 
