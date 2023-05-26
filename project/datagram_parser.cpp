@@ -142,7 +142,7 @@ Datagram parseIPDatagram(const std::string& hexString) {
         throw std::runtime_error("Unsupported protocol: " + std::to_string(datagram.ipHeader.protocol));
     }
 
-    printf("Parsed datagram.\n");
+    // printf("Parsed datagram.\n");
     fflush(stdout);
     return datagram;
 }

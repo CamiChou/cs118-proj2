@@ -46,7 +46,6 @@ unsigned short compute_checksum(unsigned short *addr, int len) {
 int counter = 0;
 void handle_client(int client_socket) {
   address_to_socket[clientIPs[counter]]=client_socket;
-  cerr << clientIPs[counter]<<" "<<client_socket<<endl;
   counter++;
 
   uint8_t buffer[BUFFER_SIZE];
@@ -129,7 +128,7 @@ int main() {
   }
 
   while(1) {
-      cout << "Server waiting for connection...\n" << endl;
+      // cout << "Server waiting for connection...\n" << endl;
 
       struct sockaddr_in client_address;
       socklen_t client_len = sizeof(client_address);
@@ -139,7 +138,7 @@ int main() {
           perror("accept failed");
           return -1;
       }
-      cout << "Connection accepted, spawning handler thread...\n" << endl;
+      // cout << "Connection accepted, spawning handler thread...\n" << endl;
 
       thread client_thread(handle_client, client_socket);
       client_thread.detach();
