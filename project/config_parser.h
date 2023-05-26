@@ -14,6 +14,7 @@ struct IpConfig {
 };
 struct NaptConfig {
     map<pair<string, int>, int> lanToWanMap; // maps from (LAN IP, LAN port) to WAN port
+    map<pair<string, int>, int> convertToMap(); // maps from (WAN IP, WAN port) to LAN port
 };
 
 class ConfigParser {

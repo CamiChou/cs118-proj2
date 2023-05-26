@@ -5,16 +5,17 @@
 #include <variant>
 
 struct UDPHeader {
-    UDPHeader() : sourcePort(0), destinationPort(0), length(0), checksum("") {}
+    UDPHeader() : sourcePort(0), destinationPort(0), length(0), checksum(0) {}
 
     unsigned int sourcePort;
     unsigned int destinationPort;
     unsigned int length;
-    std::string checksum;
+    uint16_t checksum;
+    void recomputeChecksum();
 };
 
 struct TCPHeader {
-    TCPHeader() : sourcePort(0), destinationPort(0), sequenceNumber(0), acknowledgmentNumber(0), flags(""), windowSize(0), checksum(""), urgentPointer(0) {}
+    TCPHeader() : sourcePort(0), destinationPort(0), sequenceNumber(0), acknowledgmentNumber(0), flags(""), windowSize(0), checksum(0), urgentPointer(0) {}
 
     unsigned int sourcePort;
     unsigned int destinationPort;
@@ -22,13 +23,14 @@ struct TCPHeader {
     unsigned int acknowledgmentNumber;
     std::string flags;
     unsigned int windowSize;
-    std::string checksum;
+    uint16_t checksum;
     unsigned int urgentPointer;
+    void recomputeChecksum();
 };
 
 struct IPHeader {
     IPHeader() : version(0), ihl(0), typeOfService(0), totalLength(0), identification(0), 
-    flagsAndFragmentOffset(""), ttl(0), protocol(0), headerChecksum(""), sourceIP(""), destinationIP("") {} 
+    flagsAndFragmentOffset(""), ttl(0), protocol(0), headerChecksum(0), sourceIP(""), destinationIP("") {} 
     
     unsigned int version;
     unsigned int ihl;
@@ -38,9 +40,10 @@ struct IPHeader {
     std::string flagsAndFragmentOffset;
     unsigned int ttl;
     unsigned int protocol;
-    std::string headerChecksum;
+    uint16_t headerChecksum;
     std::string sourceIP;
     std::string destinationIP;
+    void decrementTTL();
 };
 
 struct TransportHeader {
@@ -50,6 +53,7 @@ struct TransportHeader {
 struct Datagram {
     IPHeader ipHeader;
     TransportHeader transportHeader;
+    
 };
 
 Datagram parseIPDatagram(const std::string& hexString);

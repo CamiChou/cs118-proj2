@@ -50,7 +50,7 @@ IPHeader parseIPHeader(const std::string& hexString) {
     ipHeader.flagsAndFragmentOffset = hexString.substr(12, 4);
     ipHeader.ttl = hexToDecimal(hexString.substr(16, 2));
     ipHeader.protocol = hexToDecimal(hexString.substr(18, 2));
-    ipHeader.headerChecksum = hexString.substr(20, 4);
+    ipHeader.headerChecksum = hexToDecimal(hexString.substr(20, 4));
     ipHeader.sourceIP = hexToIP(hexString.substr(24, 8));
     ipHeader.destinationIP = hexToIP(hexString.substr(32, 8));
 
@@ -73,20 +73,20 @@ IPHeader parseIPHeader(const std::string& hexString) {
 
 // Parse UDP header
 UDPHeader parseUDPHeader(const std::string& hexString) {
-    printf("Parsing UDP header...\n");
+    // printf("Parsing UDP header...\n");
 
-    std::cout << "UDP Header Hexstring: " << hexString << std::endl;
     UDPHeader udpHeader;
     udpHeader.sourcePort = hexToDecimal(hexString.substr(0, 4));
     udpHeader.destinationPort = hexToDecimal(hexString.substr(4, 4));
     udpHeader.length = hexToDecimal(hexString.substr(8, 4));
-    udpHeader.checksum = hexString.substr(12, 4);
+    udpHeader.checksum = hexToDecimal(hexString.substr(12, 4));
 
+    // std::cout << "UDP Header Hexstring: " << hexString << std::endl;
     // std::cout << "Transport Protocol: UDP" << std::endl;
-    std::cout << "UDP Source Port: " << udpHeader.sourcePort << std::endl;
-    std::cout << "UDP Destination Port: " << udpHeader.destinationPort << std::endl;
-    std::cout << "UDP Length: " << udpHeader.length << std::endl;
-    std::cout << "UDP Checksum: " << udpHeader.checksum << std::endl;
+    // std::cout << "UDP Source Port: " << udpHeader.sourcePort << std::endl;
+    // std::cout << "UDP Destination Port: " << udpHeader.destinationPort << std::endl;
+    // std::cout << "UDP Length: " << udpHeader.length << std::endl;
+    // std::cout << "UDP Checksum: " << udpHeader.checksum << std::endl;
     // std::cout << std::endl;
     // fflush(stdout);
 
@@ -95,7 +95,7 @@ UDPHeader parseUDPHeader(const std::string& hexString) {
 
 // Parse TCP header
 TCPHeader parseTCPHeader(const std::string& hexString) {
-    printf("Parsing TCP header...\n");
+    // printf("Parsing TCP header...\n");
 
     TCPHeader tcpHeader;
     tcpHeader.sourcePort = hexToDecimal(hexString.substr(0, 4));
@@ -104,7 +104,7 @@ TCPHeader parseTCPHeader(const std::string& hexString) {
     tcpHeader.acknowledgmentNumber = hexToDecimal(hexString.substr(16, 8));
     tcpHeader.flags = hexString.substr(24, 4);
     tcpHeader.windowSize = hexToDecimal(hexString.substr(28, 4));
-    tcpHeader.checksum = hexString.substr(32, 4);
+    tcpHeader.checksum = hexToDecimal(hexString.substr(32, 4));
     tcpHeader.urgentPointer = hexToDecimal(hexString.substr(36, 4));
 
     // std::cout << "TCP Source Port: " << tcpHeader.sourcePort << std::endl;
@@ -122,7 +122,7 @@ TCPHeader parseTCPHeader(const std::string& hexString) {
 }
 
 Datagram parseIPDatagram(const std::string& hexString) {
-    printf("Parsing datagram...\n");
+    // printf("Parsing datagram...\n");
     fflush(stdout);
     Datagram datagram;
     datagram.ipHeader = parseIPHeader(hexString);
@@ -138,5 +138,19 @@ Datagram parseIPDatagram(const std::string& hexString) {
         throw std::runtime_error("Unsupported protocol: " + std::to_string(datagram.ipHeader.protocol));
     }
 
+    printf("Parsed datagram.\n");
+    fflush(stdout);
     return datagram;
+}
+
+void IPHeader::decrementTTL() {
+    this->ttl--;
+}
+
+void UDPHeader::recomputeChecksum() {
+    return;
+}
+
+void TCPHeader::recomputeChecksum() {
+    return;
 }

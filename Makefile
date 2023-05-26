@@ -10,8 +10,14 @@ clean:
 test: 
 	python3 grader/executor.py project/server scenarios/setting1.json
 
+check:
+	python3 grader/packet_generate.py < scenarios/setting1.json
+
 test2:
 	python3 grader/executor.py project/server scenarios/setting2.json
+
+check2:
+	python3 grader/packet_generate.py < scenarios/setting2.json
 
 out:
 	cat stdout.txt
