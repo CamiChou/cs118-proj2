@@ -17,26 +17,78 @@
 
 using namespace std;
 
+
 const int BUFFER_SIZE = 2048;
 map<pair<string, int>, int> naptTable;
 map<string, int> address_to_socket;
 vector<string> clientIPs;
+
+
+
+std::string calculateNetworkAddress(const std::string& ipAddress, const std::string& subnetMask) {
+  std::vector<int> ipParts;
+  std::vector<int> maskParts;
+  std::vector<int> networkParts;
+
+  // Parse IP address
+  std::string part;
+  std::istringstream ipStream(ipAddress);
+  while (getline(ipStream, part, '.')) {
+    ipParts.push_back(std::stoi(part));
+  }
+
+  // Parse subnet mask
+  std::istringstream maskStream(subnetMask);
+  while (getline(maskStream, part, '.')) {
+    maskParts.push_back(std::stoi(part));
+  }
+
+  // Calculate network address by performing bitwise AND
+  for (size_t i = 0; i < ipParts.size(); ++i) {
+    networkParts.push_back(ipParts[i] & maskParts[i]);
+  }
+
+  // Construct network address string
+  std::string networkAddress;
+  for (size_t i = 0; i < networkParts.size(); ++i) {
+    networkAddress += std::to_string(networkParts[i]);
+    if (i < networkParts.size() - 1) {
+      networkAddress += ".";
+    }
+  }
+  return networkAddress;
+}
+
+bool isSameSubnet(const std::string first,const std::string second, const std::string subnetMask)
+{
+  return calculateNetworkAddress(first, subnetMask) == calculateNetworkAddress(second, subnetMask);
+}
+
+
+
+
+
+
+
+
+
+
 
 unsigned short compute_checksum(unsigned short *addr, int len) {
   int count = len;
   unsigned long sum = 0;
 
   while (count > 1) {
-      sum += *addr++;
-      count -= 2;
+    sum += *addr++;
+    count -= 2;
   }
 
   if (count > 0) {
-      sum += *(unsigned char *)addr;
+    sum += *(unsigned char *)addr;
   }
 
   while (sum >> 16) {
-      sum = (sum & 0xffff) + (sum >> 16);
+    sum = (sum & 0xffff) + (sum >> 16);
   }
 
   unsigned short result = ~((unsigned short)sum);
@@ -62,7 +114,7 @@ void handle_client(int client_socket) {
 
     std::stringstream ss;
     for (int i = 0; i < BUFFER_SIZE; ++i) {
-        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(buffer[i]);
+      ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(buffer[i]);
     }
     std::string hexString = ss.str();
     Datagram datagram = parseIPDatagram(hexString);
@@ -81,6 +133,31 @@ void handle_client(int client_socket) {
     unsigned short new_checksum = compute_checksum((unsigned short *)buffer, iph->ihl*4);
     iph->check = new_checksum;
     memcpy(buffer, iph, sizeof(struct iphdr));
+
+
+
+
+
+    // forward packet locally
+    std::string subnetMask24 = "255.255.255.0";
+
+    // IpConfig ipConfig = parser.getIpConfig();
+    // NaptConfig naptConfig = parser.getNaptConfig();
+
+    // print source and destination ips
+    std::cout << "Source IP: " << datagram.ipHeader.sourceIP << std::endl;
+    std::cout << "Destination IP: " << datagram.ipHeader.destinationIP << std::endl;
+    // check if the source and destination are on the same subnet
+    std::cout << "Same subnet: = " << isSameSubnet(datagram.ipHeader.sourceIP, datagram.ipHeader.destinationIP, subnetMask24) << std::endl;
+    fflush(stdout);
+
+
+
+
+
+
+
+
 
     send(address_to_socket[datagram.ipHeader.destinationIP], buffer, num_bytes, 0);
   }
@@ -102,7 +179,7 @@ int main() {
 
   clientIPs.push_back("0.0.0.0");
   for (auto ip : parser.getIpConfig().clientIps) {
-      clientIPs.push_back(ip);
+    clientIPs.push_back(ip);
   }
   naptTable = parser.getNaptConfig().convertToMap();
   // NEED TO MAKE SURE THAT THE NAPT TABLE IS VALID
@@ -117,6 +194,13 @@ int main() {
   serverAddr.sin_port = htons(port);
   serverAddr.sin_addr.s_addr = INADDR_ANY;
 
+
+  int reuse = 1;
+if (setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0) {
+    perror("Failed to set SO_REUSEADDR option");
+    // handle the error
+}
+
   if(::bind(serverSocket, (struct sockaddr *) &serverAddr, sizeof(serverAddr)) < 0) {
     perror("bind failed");
     return -1;
@@ -128,20 +212,20 @@ int main() {
   }
 
   while(1) {
-      // cout << "Server waiting for connection...\n" << endl;
+    // cout << "Server waiting for connection...\n" << endl;
 
-      struct sockaddr_in client_address;
-      socklen_t client_len = sizeof(client_address);
+    struct sockaddr_in client_address;
+    socklen_t client_len = sizeof(client_address);
 
-      int client_socket = accept(serverSocket, (struct sockaddr*)&client_address, &client_len);
-      if (client_socket < 0) {
-          perror("accept failed");
-          return -1;
-      }
-      // cout << "Connection accepted, spawning handler thread...\n" << endl;
+    int client_socket = accept(serverSocket, (struct sockaddr*)&client_address, &client_len);
+    if (client_socket < 0) {
+        perror("accept failed");
+        return -1;
+    }
+    // cout << "Connection accepted, spawning handler thread...\n" << endl;
 
-      thread client_thread(handle_client, client_socket);
-      client_thread.detach();
+    thread client_thread(handle_client, client_socket);
+    client_thread.detach();
   }
   return 0;
 }
