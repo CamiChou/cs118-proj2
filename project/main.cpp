@@ -1,8 +1,13 @@
 #include <iostream>
 #include <sstream>
 #include <cstring>
+#include <pcap.h>
 #include <unistd.h>
 #include <netinet/in.h>
+#include <netinet/ip.h>
+#include <netinet/tcp.h>
+#include <netinet/udp.h>
+#include <netinet/ip_icmp.h>
 #include <string>
 #include <fstream>
 #include <iomanip>
@@ -51,23 +56,88 @@ bool isSameSubnet(const std::string first,const std::string second, const std::s
   return calculateNetworkAddress(first, subnetMask) == calculateNetworkAddress(second, subnetMask);
 }
 
+
+
+
+
+// Function to calculate the checksum
+unsigned short calculateChecksum(unsigned short* buffer, int size) {
+  unsigned long checksum = 0;
+  while (size > 1)
+  {
+    checksum += *buffer++;
+    size -= sizeof(unsigned short);
+  }
+  if (size)
+    checksum += *(unsigned char*)buffer;
+  checksum = (checksum >> 16) + (checksum & 0xFFFF);
+  checksum += (checksum >> 16);
+  return (unsigned short)(~checksum);
+}
+
+void modifyPacket(const unsigned char* packet, int packetSize, int socket) {
+  // Decrease the TTL value
+  struct ip* ipHeader = (struct ip*)packet;
+  ipHeader->ip_ttl--;
+
+  // Recalculate the checksum
+  ipHeader->ip_sum = 0;
+  ipHeader->ip_sum = calculateChecksum((unsigned short*)ipHeader, ipHeader->ip_hl * 4);
+
+  // Forward the modified packet
+  send(socket, packet, packetSize, 0);
+}
+
 void handleClient(int clientSocket) {
   char buffer[BUFFER_SIZE];
   Datagram datagram;
 
   ssize_t bytesRead = recv(clientSocket, buffer, BUFFER_SIZE, 0);
   if (bytesRead > 0) {
-      std::string request(buffer, bytesRead);
-      std::stringstream ss;
-      ss << std::hex << std::setfill('0');
-      for (char c : request) {
-          ss << std::setw(2) << static_cast<int>(static_cast<unsigned char>(c));
-      }
-      std::string hexRequest = ss.str();
-      std::cout << "Received request in hex: \n" << hexRequest << std::endl;
-      fflush(stdout);
-      datagram = parseIPDatagram(hexRequest);
+    std::string request(buffer, bytesRead);
+    std::stringstream ss;
+    ss << std::hex << std::setfill('0');
+    for (char c : request) {
+        ss << std::setw(2) << static_cast<int>(static_cast<unsigned char>(c));
+    }
+    std::string hexRequest = ss.str();
+    std::cout << "Received request in hex: \n" << hexRequest << std::endl;
+    fflush(stdout);
+    datagram = parseIPDatagram(hexRequest);
   }
+
+
+  std::cout << "Packet in hex: ";
+  for (ssize_t i = 0; i < bytesRead; ++i) {
+    std::cout << std::hex << std::setfill('0') << std::setw(2) << static_cast<int>(static_cast<unsigned char>(buffer[i])) << " ";
+  }
+  std::cout << std::endl;
+  
+
+  modifyPacket(reinterpret_cast<const unsigned char*>(buffer), bytesRead, clientSocket);
+
+
+  std::cout << "Modified Packet in hex: ";
+  for (ssize_t i = 0; i < bytesRead; ++i) {
+    std::cout << std::hex << std::setfill('0') << std::setw(2) << static_cast<int>(static_cast<unsigned char>(buffer[i])) << " ";
+  }
+  std::cout << std::endl;
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   // forward packet locally
   std::string subnetMask24 = "255.255.255.0";
@@ -135,19 +205,6 @@ void handleClient(int clientSocket) {
   // froward packet to destPort
   send(destSocket, buffer, bytesRead, 0);
 
-  // while (true) 
-  // {
-  //   struct sockaddr_in clientAddress{};
-  //   socklen_t clientAddressLength = sizeof(clientAddress);
-
-  //   int clientSocket = accept(serverSocket, reinterpret_cast<struct sockaddr*>(&clientAddress), &clientAddressLength);
-  //   if (clientSocket < 0) {
-  //     perror("Error accepting client connection");
-  //     continue;
-  //   }
-  //   std::cout << "New client connected" << clientSocket << std::endl;
-  //   handleClient(clientSocket);
-  // }
 
   close(clientSocket);
 }
