@@ -17,13 +17,14 @@ struct UDPHeader
 
 struct TCPHeader
 {
-    TCPHeader() : sourcePort(0), destinationPort(0), sequenceNumber(0), acknowledgmentNumber(0), flags(""), windowSize(0), checksum(0), urgentPointer(0) {}
+    TCPHeader() : sourcePort(0), destinationPort(0), sequenceNumber(0), acknowledgmentNumber(0), flags(0), windowSize(0), checksum(0), urgentPointer(0) {}
 
     unsigned int sourcePort;
     unsigned int destinationPort;
     unsigned int sequenceNumber;
     unsigned int acknowledgmentNumber;
-    std::string flags;
+    unsigned short dataOffset;
+    unsigned short flags;
     unsigned int windowSize;
     uint16_t checksum;
     unsigned int urgentPointer;

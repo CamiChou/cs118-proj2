@@ -121,39 +121,24 @@ TCPHeader parseTCPHeader(const std::string &hexString)
 
     TCPHeader tcpHeader;
     tcpHeader.sourcePort = hexToDecimal(hexString.substr(0, 4));
-    // printf("Source Port: %d\n", tcpHeader.sourcePort);
-    // fflush(stdout);
     tcpHeader.destinationPort = hexToDecimal(hexString.substr(4, 4));
-    // printf("Destination Port: %d\n", tcpHeader.destinationPort);
-    // fflush(stdout);
     tcpHeader.sequenceNumber = hexToDecimal(hexString.substr(8, 8));
-    // printf("Sequence Number: %d\n", tcpHeader.sequenceNumber);
-    // fflush(stdout);
     tcpHeader.acknowledgmentNumber = hexToDecimal(hexString.substr(16, 8));
-    // printf("Acknowledgment Number: %d\n", tcpHeader.acknowledgmentNumber);
-    // fflush(stdout);
-    tcpHeader.flags = hexString.substr(24, 4);
-    printf("Flags: %s\n", tcpHeader.flags.c_str());
-    fflush(stdout);
-    // tcpHeader.windowSize = hexToDecimal(hexString.substr(28, 4));
-    // printf("Window Size: %d\n", tcpHeader.windowSize);
-    // fflush(stdout);
+    tcpHeader.dataOffset = std::stoi(hexString.substr(24, 1), nullptr, 16);
+    tcpHeader.flags = hexToDecimal(hexString.substr(26, 2));
+    tcpHeader.windowSize = hexToDecimal(hexString.substr(28, 4));
     tcpHeader.checksum = hexToDecimal(hexString.substr(32, 4));
-    // printf("Checksum: %d\n", tcpHeader.checksum);
-    // fflush(stdout);
-    // tcpHeader.urgentPointer = hexToDecimal(hexString.substr(36, 4));
-    // printf("Urgent Pointer: %d\n", tcpHeader.urgentPointer);
-    // fflush(stdout);
+    tcpHeader.urgentPointer = hexToDecimal(hexString.substr(36, 4));
 
-    // std::cout << "TCP Source Port: " << tcpHeader.sourcePort << std::endl;
-    // std::cout << "TCP Destination Port: " << tcpHeader.destinationPort << std::endl;
-    // std::cout << "TCP Sequence Number: " << tcpHeader.sequenceNumber << std::endl;
-    // std::cout << "TCP Acknowledgment Number: " << tcpHeader.acknowledgmentNumber << std::endl;
-    // std::cout << "TCP Flags: " << tcpHeader.flags << std::endl;
-    // std::cout << "TCP Window Size: " << tcpHeader.windowSize << std::endl;
-    // std::cout << "TCP Checksum: " << tcpHeader.checksum << std::endl;
-    // std::cout << "TCP Urgent Pointer: " << tcpHeader.urgentPointer << std::endl;
-    // std::cout << std::endl;
+    // printf("Source Port: %d\n", tcpHeader.sourcePort);
+    // printf("Destination Port: %d\n", tcpHeader.destinationPort);
+    // printf("Sequence Number: %d\n", tcpHeader.sequenceNumber);
+    // printf("Acknowledgment Number: %d\n", tcpHeader.acknowledgmentNumber);
+    // print dataOffset as raw bytes
+    // printf("Flags: %d\n", tcpHeader.flags);
+    // printf("Window Size: %d\n", tcpHeader.windowSize);
+    // printf("Checksum: %d\n", tcpHeader.checksum);
+    // printf("Urgent Pointer: %d\n", tcpHeader.urgentPointer);
     fflush(stdout);
 
     return tcpHeader;
@@ -225,24 +210,19 @@ struct udphdr UDPHeaderToUdphdr(const UDPHeader &udpHeader)
     return udph;
 }
 
-struct tcphdr TCPHeaderToTcphdr(const TCPHeader &tcpHeader)
+struct tcphdr TCPHeaderToTcphdr(const TCPHeader& tcpHeader)
 {
     struct tcphdr tcph;
-    tcph.source = htons(tcpHeader.sourcePort);
-    tcph.dest = htons(tcpHeader.destinationPort);
-    tcph.seq = htonl(tcpHeader.sequenceNumber);
-    tcph.ack_seq = htonl(tcpHeader.acknowledgmentNumber);
-    tcph.doff = 5; // Assuming no options, the TCP header size is always 20 bytes (5 words)
-    // Flags need to be set individually
-    tcph.syn = (tcpHeader.flags.find("SYN") != std::string::npos);
-    tcph.ack = (tcpHeader.flags.find("ACK") != std::string::npos);
-    tcph.fin = (tcpHeader.flags.find("FIN") != std::string::npos);
-    tcph.rst = (tcpHeader.flags.find("RST") != std::string::npos);
-    tcph.psh = (tcpHeader.flags.find("PSH") != std::string::npos);
-    tcph.urg = (tcpHeader.flags.find("URG") != std::string::npos);
-    tcph.window = htons(tcpHeader.windowSize);
-    tcph.check = tcpHeader.checksum;
-    tcph.urg_ptr = htons(tcpHeader.urgentPointer);
+
+    tcph.th_sport = htons(tcpHeader.sourcePort);
+    tcph.th_dport = htons(tcpHeader.destinationPort);
+    tcph.th_seq = htonl(tcpHeader.sequenceNumber);
+    tcph.th_ack = htonl(tcpHeader.acknowledgmentNumber);
+    tcph.th_off = tcpHeader.dataOffset;
+    tcph.th_flags = tcpHeader.flags;
+    tcph.th_win = htons(tcpHeader.windowSize);
+    tcph.th_sum = tcpHeader.checksum;
+    tcph.th_urp = htons(tcpHeader.urgentPointer);
 
     return tcph;
 }
