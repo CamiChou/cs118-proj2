@@ -20,7 +20,8 @@
 using namespace std;
 
 const int BUFFER_SIZE = 2048;
-map<pair<string, int>, int> naptTable;
+map<pair<string, int>, int> lanToWan;
+map<int, pair<string, int>> wanToLan;
 map<string, int> address_to_socket;
 vector<string> clientIPs;
 
@@ -187,13 +188,11 @@ void handle_client(int client_socket, string wanIP)
 
       send(address_to_socket[datagram.ipHeader.destinationIP], buffer, num_bytes, 0);
     }
-
     else
     {
       std::cout << "NOT SAME SUBNET, GOING NAT IT UP" << std::endl;
-
-      int destport;
-      int sourceport;
+      // check if the source ip is in the vector of client ips
+      bool isClient = std::find(clientIPs.begin(), clientIPs.end(), datagram.ipHeader.sourceIP) != clientIPs.end();
       struct udphdr udph;
       struct tcphdr tcph;
       PseudoHeader myPsuedo;
@@ -203,10 +202,6 @@ void handle_client(int client_socket, string wanIP)
         // Variant is UDPHeader
         udph = UDPHeaderToUdphdr(std::get<UDPHeader>(datagram.transportHeader.header));
         udph.uh_sum = 0;
-        UDPHeader &udpHeader = std::get<UDPHeader>(datagram.transportHeader.header);
-
-        destport = udpHeader.destinationPort;
-        sourceport = udpHeader.sourcePort;
         std::cout << "WOW its a udp header" << std::endl;
       }
       else if (std::holds_alternative<TCPHeader>(datagram.transportHeader.header))
@@ -214,128 +209,158 @@ void handle_client(int client_socket, string wanIP)
         // Variant is TCPHeader
         tcph = TCPHeaderToTcphdr(std::get<TCPHeader>(datagram.transportHeader.header));
         tcph.th_sum = 0;
-        TCPHeader &tcpHeader = std::get<TCPHeader>(datagram.transportHeader.header);
-
-        destport = tcpHeader.destinationPort;
-        sourceport = tcpHeader.sourcePort;
         std::cout << "WOW its a tcp header" << std::endl;
       }
-      std::cout << "THIS IS MY DESTPORT: " << destport << std::endl;
-      std::cout << "THIS IS MY SOURCEPORT: " << sourceport << std::endl;
-      std::cout << "THIS IS MY DEST IP: " << datagram.ipHeader.destinationIP << std::endl;
-      std::cout << "THIS IS MY SOURCE IP: " << datagram.ipHeader.sourceIP << std::endl;
+      // std::cout << "THIS IS MY DESTPORT: " << htons(udph.uh_dport) << std::endl;
+      // std::cout << "THIS IS MY SOURCEPORT: " << htons(udph.uh_sport) << std::endl;
+      // std::cout << "THIS IS MY DEST IP: " << datagram.ipHeader.destinationIP << std::endl;
+      // std::cout << "THIS IS MY SOURCE IP: " << datagram.ipHeader.sourceIP << std::endl;
 
-      pair<string, int> destKey = make_pair(datagram.ipHeader.destinationIP, destport);
-      pair<string, int> sourceKey = make_pair(datagram.ipHeader.sourceIP, sourceport);
-
-      // for (const auto &[lanIp, wanPort] : naptTable)
-      // {
-      //   std::cout << "LAN IP: " << lanIp.first << "LAN Port:" << lanIp.second << std::endl;
-      //   std::cout << "WAN Port: " << wanPort << std::endl;
-      // }
-
-      // Check if the entry exists in the NAPT table
-      if (naptTable.count(sourceKey) > 0)
+      if (isClient)
       {
-        // Perform translation using the NAPT table
-        int translatedPort = naptTable[sourceKey];
-        if (std::holds_alternative<UDPHeader>(datagram.transportHeader.header))
+        pair<string, int> sourceKey = make_pair(datagram.ipHeader.sourceIP, htons(udph.uh_sport));
+
+        // for (const auto &[lanIp, wanPort] : lanToWan)
+        // {
+        //   std::cout << "LAN IP: " << lanIp.first << "LAN Port:" << lanIp.second << std::endl;
+        //   std::cout << "WAN Port: " << wanPort << std::endl;
+        // }
+
+        if (lanToWan.count(sourceKey) > 0)
         {
-          // Variant is UDPHeader
-          UDPHeader &udpHeader = std::get<UDPHeader>(datagram.transportHeader.header);
-          udpHeader.sourcePort = htons(translatedPort);
-          std::cout << "YAYAY THIS IS MY SOURCE PORT: " << ntohs(udpHeader.sourcePort) << std::endl;
-          datagram.ipHeader.sourceIP = wanIP;
-          myPsuedo.length = udph.uh_ulen;
-
-          std::cout << "YAYAY THIS IS MY DEST PORT: " << udpHeader.destinationPort << std::endl;
-
-          inet_pton(AF_INET, datagram.ipHeader.sourceIP.c_str(), &(myPsuedo.sourceAddress));
-
-          inet_pton(AF_INET, datagram.ipHeader.destinationIP.c_str(), &(myPsuedo.destinationAddress));
-
-          char sourceIP[INET_ADDRSTRLEN];
-          inet_ntop(AF_INET, &(myPsuedo.sourceAddress), sourceIP, INET_ADDRSTRLEN);
-
-          // Print the IP address
-          std::cout << "THIS IS MY SOURCE IP: " << sourceIP << std::endl;
-
-          myPsuedo.reserved = 0;
-          myPsuedo.protocol = datagram.ipHeader.protocol;
-
-          std::cout << "Printing Psuedo: " << std::endl;
-          unsigned char *bytes = reinterpret_cast<unsigned char *>(&myPsuedo);
-          std::size_t size = sizeof(myPsuedo);
-
-          for (std::size_t i = 0; i < size; ++i)
+          // Perform translation using the NAPT table
+          int translatedPort = lanToWan[sourceKey];
+          if (std::holds_alternative<UDPHeader>(datagram.transportHeader.header))
           {
-            std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(bytes[i]) << " ";
+            datagram.ipHeader.sourceIP = wanIP;
+            udph.uh_sport = htons(translatedPort);
+            myPsuedo.length = udph.uh_ulen;
+
+            // std::cout << "YAYAY THIS IS MY SOURCE PORT: " << ntohs(udph.uh_sport) << std::endl;
+            // std::cout << "YAYAY THIS IS MY DEST PORT: " << ntohs(udph.uh_dport) << std::endl;
+
+            inet_pton(AF_INET, datagram.ipHeader.sourceIP.c_str(), &(myPsuedo.sourceAddress));
+            inet_pton(AF_INET, datagram.ipHeader.destinationIP.c_str(), &(myPsuedo.destinationAddress));
+
+            char sourceIP[INET_ADDRSTRLEN];
+            inet_ntop(AF_INET, &(myPsuedo.sourceAddress), sourceIP, INET_ADDRSTRLEN);
+
+            // Print the IP address
+            std::cout << "THIS IS MY SOURCE IP: " << sourceIP << std::endl;
+
+            myPsuedo.reserved = 0;
+            myPsuedo.protocol = datagram.ipHeader.protocol;
+
+            std::cout << "Printing Psuedo: " << std::endl;
+            unsigned char *bytes = reinterpret_cast<unsigned char *>(&myPsuedo);
+            std::size_t size = sizeof(myPsuedo);
+
+            for (std::size_t i = 0; i < size; ++i)
+            {
+              std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(bytes[i]) << " ";
+            }
+            std::cout << std::endl;
+
+            std::cout << "DONE" << std::endl;
           }
-          std::cout << std::endl;
-
-          std::cout << "DONE" << std::endl;
+          else if (std::holds_alternative<TCPHeader>(datagram.transportHeader.header))
+          {
+            // Variant is TCPHeader
+            TCPHeader &tcpHeader = std::get<TCPHeader>(datagram.transportHeader.header);
+            tcpHeader.sourcePort = translatedPort;
+            std::cout << "YAYAY THIS IS MY SOURCE PORT: " << tcpHeader.sourcePort << std::endl;
+            datagram.ipHeader.sourceIP = wanIP;
+            std::cout << "YAYAY THIS IS MY DEST PORT: " << tcpHeader.destinationPort << std::endl;
+          }
         }
-        else if (std::holds_alternative<TCPHeader>(datagram.transportHeader.header))
-        {
-          // Variant is TCPHeader
-          TCPHeader &tcpHeader = std::get<TCPHeader>(datagram.transportHeader.header);
-          tcpHeader.sourcePort = translatedPort;
-          std::cout << "YAYAY THIS IS MY SOURCE PORT: " << tcpHeader.sourcePort << std::endl;
-          datagram.ipHeader.sourceIP = wanIP;
-          std::cout << "YAYAY THIS IS MY DEST PORT: " << tcpHeader.destinationPort << std::endl;
-        }
-
-        fflush(stdout);
-        std::cout << "THIS IS MY Dest IP: " << datagram.ipHeader.destinationIP << std::endl;
-        std::cout << "THIS IS MY Source IP: " << datagram.ipHeader.sourceIP << std::endl;
-        iph->saddr = inet_addr(datagram.ipHeader.sourceIP.c_str());
-        iph->daddr = inet_addr(datagram.ipHeader.destinationIP.c_str());
-        iph->check = 0;
-        memcpy(buffer, iph, sizeof(struct iphdr));
-        unsigned short new_checksum = compute_checksum((unsigned short *)buffer, iph->ihl * 4);
-        iph->check = new_checksum;
-        memcpy(buffer, iph, sizeof(struct iphdr));
-
-        // std::cout << "BEFOOREEEE::::" << std::endl;
-        // printBufferAsHex(buffer, num_bytes);
-
-        char *pseudoBuffer = new char[sizeof(PseudoHeader) + sizeof(struct udphdr)];
-        memcpy(pseudoBuffer, &myPsuedo, sizeof(PseudoHeader));                     // insert pseudo header into buffer
-        memcpy(pseudoBuffer + sizeof(PseudoHeader), &udph, sizeof(struct udphdr)); // insert udp header into buffer
-
-        // Calculate the UDP checksum
-        unsigned short myChecksum = compute_checksum(reinterpret_cast<unsigned short *>(pseudoBuffer), sizeof(PseudoHeader) + sizeof(struct udphdr));
-        udph.uh_sum = myChecksum;
-
-        // std::cout << "PSEUDO CHECKSUM" << myChecksum << std::endl;
-
-        memcpy(pseudoBuffer + sizeof(PseudoHeader), &udph, sizeof(struct udphdr)); // insert udp header into buffer
-
-        // reconstruct buffer with ip header and new udp header and original data
-        memcpy(buffer, iph, sizeof(struct iphdr));
-        memcpy(buffer + sizeof(struct iphdr), &udph, sizeof(struct udphdr));
-        memcpy(buffer + sizeof(struct iphdr) + sizeof(struct udphdr), buffer + (iph->ihl * 4), myPsuedo.length);
-
-        // std::cout << "BUFFER NOW WITH THE PSEUDOBUFFER IS:::::" << std::endl;
-        // printBufferAsHex(buffer, num_bytes);
-
-        delete[] pseudoBuffer;
-
-        if (address_to_socket.count(datagram.ipHeader.destinationIP) > 0)
-        {
-          send(address_to_socket[datagram.ipHeader.destinationIP], buffer, num_bytes, 0);
-          std::cout << "Heree " << std::endl;
-        }
-        else
-        {
-          send(address_to_socket["0.0.0.0"], buffer, num_bytes, 0);
-          std::cout << "Here INSTEAD " << std::endl;
-        }
-
-        std::cout << "SENTTTT" << std::endl;
       }
       else
-        std::cout << "Ya so... Not there" << std::endl;
+      {
+        u_int16_t destPort = udph.uh_dport;
+        int destPortInt = ntohs(destPort);
+        // convert to int
+
+        // print wanToLan
+        for (const auto &[wanPort, lanIp] : wanToLan)
+        {
+          std::cout << "WAN Port: " << wanPort << std::endl;
+          std::cout << "LAN IP: " << lanIp.first << "LAN Port:" << lanIp.second << std::endl;
+        }
+        printf("DEST PORT: %d\n", destPortInt);
+        pair<string, int> translatedIpAndPort = wanToLan[destPortInt];
+
+        printf("TRANSLATED IP: %s\n", translatedIpAndPort.first.c_str());
+        printf("TRANSLATED PORT: %d\n", translatedIpAndPort.second);
+        fflush(stdout);
+
+        udph.uh_dport = htons(translatedIpAndPort.second);
+        datagram.ipHeader.destinationIP = translatedIpAndPort.first;
+        myPsuedo.length = udph.uh_ulen;
+
+        inet_pton(AF_INET, datagram.ipHeader.sourceIP.c_str(), &(myPsuedo.sourceAddress));
+        inet_pton(AF_INET, datagram.ipHeader.destinationIP.c_str(), &(myPsuedo.destinationAddress));
+
+        char sourceIP[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &(myPsuedo.sourceAddress), sourceIP, INET_ADDRSTRLEN);
+
+        // Print the IP address
+        std::cout << "THIS IS MY SOURCE IP: " << sourceIP << std::endl;
+
+        myPsuedo.reserved = 0;
+        myPsuedo.protocol = datagram.ipHeader.protocol;
+
+        std::cout << "Printing Psuedo: " << std::endl;
+      }
+
+      fflush(stdout);
+      std::cout << "THIS IS MY Dest IP: " << datagram.ipHeader.destinationIP << std::endl;
+      std::cout << "THIS IS MY Source IP: " << datagram.ipHeader.sourceIP << std::endl;
+      iph->saddr = inet_addr(datagram.ipHeader.sourceIP.c_str());
+      iph->daddr = inet_addr(datagram.ipHeader.destinationIP.c_str());
+      iph->check = 0;
+      memcpy(buffer, iph, sizeof(struct iphdr));
+      unsigned short new_checksum = compute_checksum((unsigned short *)buffer, iph->ihl * 4);
+      iph->check = new_checksum;
+      memcpy(buffer, iph, sizeof(struct iphdr));
+
+      // create pseudobuffer in order to checksum!
+      char *pseudoBuffer = new char[sizeof(PseudoHeader) + sizeof(struct udphdr)];
+      memcpy(pseudoBuffer, &myPsuedo, sizeof(PseudoHeader));                     // insert pseudo header into buffer
+      memcpy(pseudoBuffer + sizeof(PseudoHeader), &udph, sizeof(struct udphdr)); // insert udp header into buffer
+
+      // Calculate the UDP checksum
+      unsigned short myChecksum = compute_checksum(reinterpret_cast<unsigned short *>(pseudoBuffer), sizeof(PseudoHeader) + sizeof(struct udphdr));
+      udph.uh_sum = myChecksum;
+
+      // std::cout << "PSEUDO CHECKSUM" << myChecksum << std::endl;
+
+      memcpy(pseudoBuffer + sizeof(PseudoHeader), &udph, sizeof(struct udphdr)); // insert udp header into buffer
+
+      // reconstruct buffer with ip header and new udp header and original data
+      memcpy(buffer, iph, sizeof(struct iphdr));
+      memcpy(buffer + sizeof(struct iphdr), &udph, sizeof(struct udphdr));
+      memcpy(buffer + sizeof(struct iphdr) + sizeof(struct udphdr), buffer + (iph->ihl * 4), myPsuedo.length);
+
+      // std::cout << "BUFFER NOW WITH THE PSEUDOBUFFER IS:::::" << std::endl;
+      // printBufferAsHex(buffer, num_bytes);
+
+      delete[] pseudoBuffer;
+
+      if (address_to_socket.count(datagram.ipHeader.destinationIP) > 0)
+      {
+        send(address_to_socket[datagram.ipHeader.destinationIP], buffer, num_bytes, 0);
+        std::cout << "Heree " << std::endl;
+      }
+      else
+      {
+        send(address_to_socket["0.0.0.0"], buffer, num_bytes, 0);
+        std::cout << "Here INSTEAD " << std::endl;
+      }
+
+      std::cout << "SENTTTT" << std::endl;
+      // }
+      // else
+      //   std::cout << "Ya so... Not there" << std::endl;
     }
   }
 
@@ -359,7 +384,8 @@ int main()
   {
     clientIPs.push_back(ip);
   }
-  naptTable = parser.getNaptConfig().convertToMap();
+  lanToWan = parser.getNaptConfig().getLtoW();
+  wanToLan = parser.getNaptConfig().getWtoL();
 
   string wanIP = parser.getIpConfig().wanIP;
 

@@ -7,17 +7,23 @@
 #include <sstream>
 using namespace std;
 
-struct IpConfig {
-    string lanIP; // router's LAN IP
-    string wanIP; // router's WAN IP
+struct IpConfig
+{
+    string lanIP;             // router's LAN IP
+    string wanIP;             // router's WAN IP
     vector<string> clientIps; // client IPs
 };
-struct NaptConfig {
+
+struct NaptConfig
+{
     map<pair<string, int>, int> lanToWanMap; // maps from (LAN IP, LAN port) to WAN port
-    map<pair<string, int>, int> convertToMap(); // maps from (WAN IP, WAN port) to LAN port
+    map<pair<string, int>, int> getLtoW();   // maps from (WAN IP, WAN port) to LAN port
+    map<int, pair<string, int>> wanToLanMap;
+    map<int, pair<string, int>> getWtoL();
 };
 
-class ConfigParser {
+class ConfigParser
+{
 private:
     string in;
     IpConfig ipConfig;

@@ -80,6 +80,7 @@ IPHeader parseIPHeader(const std::string &hexString)
     // std::cout << "IP Destination Address: " << ipHeader.destinationIP << std::endl;
     // std::cout << std::endl;
     // fflush(stdout);
+
     return ipHeader;
 }
 
@@ -131,6 +132,7 @@ TCPHeader parseTCPHeader(const std::string &hexString)
     // std::cout << "TCP Urgent Pointer: " << tcpHeader.urgentPointer << std::endl;
     // std::cout << std::endl;
     // fflush(stdout);
+
     return tcpHeader;
 }
 
@@ -162,7 +164,7 @@ Datagram parseIPDatagram(const std::string &hexString)
     return datagram;
 }
 
-iphdr DatagramToIphdr(const Datagram &datagram)
+struct iphdr DatagramToIphdr(const Datagram &datagram)
 {
     struct iphdr ip_header;
 
@@ -189,10 +191,10 @@ struct udphdr UDPHeaderToUdphdr(const UDPHeader &udpHeader)
 {
     struct udphdr udph;
 
-    udph.source = htons(udpHeader.sourcePort);
-    udph.dest = htons(udpHeader.destinationPort);
-    udph.len = htons(udpHeader.length);
-    udph.check = udpHeader.checksum;
+    udph.uh_dport = htons(udpHeader.destinationPort);
+    udph.uh_sport = htons(udpHeader.sourcePort);
+    udph.uh_ulen = htons(udpHeader.length);
+    udph.uh_sum = udpHeader.checksum;
 
     return udph;
 }
