@@ -52,7 +52,9 @@ std::string hexToIP(const std::string &hex)
 IPHeader parseIPHeader(const std::string &hexString)
 {
 
-    // printf("Parsing IP header...\n");
+    printf("Parsing IP header...\n");
+    fflush(stdout);
+
     IPHeader ipHeader;
     ipHeader.version = hexToDecimal(hexString.substr(0, 1));
     ipHeader.ihl = hexToDecimal(hexString.substr(1, 1));
@@ -68,9 +70,9 @@ IPHeader parseIPHeader(const std::string &hexString)
     ipHeader.optionsAndPadding = hexToDecimal(hexString.substr(40, 8));
 
     // std::cout << "IP Version: " << ipHeader.version << std::endl;
-    // std::cout << "IP IHL: " << ipHeader.ihl << std::endl;
+    std::cout << "IP IHL: " << ipHeader.ihl << std::endl;
     // std::cout << "IP Type of Service: " << ipHeader.typeOfService << std::endl;
-    // std::cout << "IP Total Length: " << ipHeader.totalLength << std::endl;
+    std::cout << "IP Total Length: " << ipHeader.totalLength << std::endl;
     // std::cout << "IP Identification: " << ipHeader.identification << std::endl;
     // std::cout << "IP Flags and Fragment Offset: " << ipHeader.flagsAndFragmentOffset << std::endl;
     // std::cout << "IP TTL: " << ipHeader.ttl << std::endl;
@@ -79,7 +81,7 @@ IPHeader parseIPHeader(const std::string &hexString)
     // std::cout << "IP Source Address: " << ipHeader.sourceIP << std::endl;
     // std::cout << "IP Destination Address: " << ipHeader.destinationIP << std::endl;
     // std::cout << std::endl;
-    // fflush(stdout);
+    fflush(stdout);
 
     return ipHeader;
 }
@@ -87,7 +89,8 @@ IPHeader parseIPHeader(const std::string &hexString)
 // Parse UDP header
 UDPHeader parseUDPHeader(const std::string &hexString)
 {
-    // printf("Parsing UDP header...\n");
+    printf("Parsing UDP header...\n");
+    fflush(stdout);
 
     UDPHeader udpHeader;
     udpHeader.sourcePort = hexToDecimal(hexString.substr(0, 4));
@@ -110,17 +113,37 @@ UDPHeader parseUDPHeader(const std::string &hexString)
 // Parse TCP header
 TCPHeader parseTCPHeader(const std::string &hexString)
 {
-    // printf("Parsing TCP header...\n");
+    printf("Parsing TCP header...\n");
+    fflush(stdout);
+
+    // print the hex string
+    std::cout << "TCP Header Hexstring: " << hexString << std::endl;
 
     TCPHeader tcpHeader;
     tcpHeader.sourcePort = hexToDecimal(hexString.substr(0, 4));
+    printf("Source Port: %d\n", tcpHeader.sourcePort);
+    fflush(stdout);
     tcpHeader.destinationPort = hexToDecimal(hexString.substr(4, 4));
+    printf("Destination Port: %d\n", tcpHeader.destinationPort);
+    fflush(stdout);
     tcpHeader.sequenceNumber = hexToDecimal(hexString.substr(8, 8));
+    printf("Sequence Number: %d\n", tcpHeader.sequenceNumber);
+    fflush(stdout);
     tcpHeader.acknowledgmentNumber = hexToDecimal(hexString.substr(16, 8));
+    printf("Acknowledgment Number: %d\n", tcpHeader.acknowledgmentNumber);
+    fflush(stdout);
     tcpHeader.flags = hexString.substr(24, 4);
+    printf("Flags: %s\n", tcpHeader.flags.c_str());
+    fflush(stdout);
     tcpHeader.windowSize = hexToDecimal(hexString.substr(28, 4));
+    printf("Window Size: %d\n", tcpHeader.windowSize);
+    fflush(stdout);
     tcpHeader.checksum = hexToDecimal(hexString.substr(32, 4));
+    printf("Checksum: %d\n", tcpHeader.checksum);
+    fflush(stdout);
     tcpHeader.urgentPointer = hexToDecimal(hexString.substr(36, 4));
+    printf("Urgent Pointer: %d\n", tcpHeader.urgentPointer);
+    fflush(stdout);
 
     // std::cout << "TCP Source Port: " << tcpHeader.sourcePort << std::endl;
     // std::cout << "TCP Destination Port: " << tcpHeader.destinationPort << std::endl;
@@ -131,27 +154,30 @@ TCPHeader parseTCPHeader(const std::string &hexString)
     // std::cout << "TCP Checksum: " << tcpHeader.checksum << std::endl;
     // std::cout << "TCP Urgent Pointer: " << tcpHeader.urgentPointer << std::endl;
     // std::cout << std::endl;
-    // fflush(stdout);
+    fflush(stdout);
 
     return tcpHeader;
 }
 
 Datagram parseIPDatagram(const std::string &hexString)
 {
-    // printf("Parsing datagram...\n");
+    printf("Parsing datagram...\n");
     fflush(stdout);
     Datagram datagram;
     datagram.ipHeader = parseIPHeader(hexString);
 
-    int headerLength = datagram.ipHeader.ihl * 8;
-    std::string protocolData = hexString.substr(headerLength, datagram.ipHeader.totalLength - headerLength);
-
     if (datagram.ipHeader.protocol == 17)
     {
+        int headerLength = datagram.ipHeader.ihl * 8;
+        std::string protocolData = hexString.substr(headerLength, datagram.ipHeader.totalLength - headerLength);
         datagram.transportHeader.header = parseUDPHeader(protocolData);
     }
     else if (datagram.ipHeader.protocol == 6)
     { // TCP
+        int IPheaderLength = datagram.ipHeader.ihl * 8;
+        int TCPandBodyLength = (datagram.ipHeader.totalLength - IPheaderLength) * 10;
+
+        std::string protocolData = hexString.substr(IPheaderLength, TCPandBodyLength);
         datagram.transportHeader.header = parseTCPHeader(protocolData);
     }
     else
@@ -202,7 +228,6 @@ struct udphdr UDPHeaderToUdphdr(const UDPHeader &udpHeader)
 struct tcphdr TCPHeaderToTcphdr(const TCPHeader &tcpHeader)
 {
     struct tcphdr tcph;
-
     tcph.source = htons(tcpHeader.sourcePort);
     tcph.dest = htons(tcpHeader.destinationPort);
     tcph.seq = htonl(tcpHeader.sequenceNumber);

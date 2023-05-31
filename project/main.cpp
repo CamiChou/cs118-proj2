@@ -142,6 +142,8 @@ void handle_client(int client_socket, string wanIP)
     }
 
     std::string hexString = ss.str();
+    printf("Received packet: %s\n", hexString.c_str());
+    fflush(stdout);
     Datagram datagram = parseIPDatagram(hexString);
 
     struct iphdr ipheader = DatagramToIphdr(datagram);
@@ -206,10 +208,25 @@ void handle_client(int client_socket, string wanIP)
       }
       else if (std::holds_alternative<TCPHeader>(datagram.transportHeader.header))
       {
+        std::cout << "WOW its a tcp header----------------" << std::endl;
+        fflush(stdout);
         // Variant is TCPHeader
         tcph = TCPHeaderToTcphdr(std::get<TCPHeader>(datagram.transportHeader.header));
         tcph.th_sum = 0;
-        std::cout << "WOW its a tcp header" << std::endl;
+        // print tcp header
+        std::cout << "THIS IS MY DESTPORT: " << htons(tcph.th_dport) << std::endl;
+        std::cout << "THIS IS MY SOURCEPORT: " << htons(tcph.th_sport) << std::endl;
+        std::cout << "THIS IS MY DEST IP: " << datagram.ipHeader.destinationIP << std::endl;
+        std::cout << "THIS IS MY SOURCE IP: " << datagram.ipHeader.sourceIP << std::endl;
+        std::cout << "THIS IS MY SEQ NUM: " << tcph.th_seq << std::endl;
+        std::cout << "THIS IS MY ACK NUM: " << tcph.th_ack << std::endl;
+        std::cout << "THIS IS MY WINDOW SIZE: " << tcph.th_win << std::endl;
+        std::cout << "THIS IS MY CHECKSUM: " << tcph.th_sum << std::endl;
+        std::cout << "THIS IS MY URGENT POINTER: " << tcph.th_urp << std::endl;
+        std::cout << "THIS IS MY DATA OFFSET: " << tcph.th_off << std::endl;
+        std::cout << "THIS IS MY FLAGS: " << tcph.th_flags << std::endl;
+        std::cout << "THIS IS MY RESERVED: " << tcph.th_x2 << std::endl;
+        std::cout << "WOW its a tcp header-----------------" << std::endl;
       }
       // std::cout << "THIS IS MY DESTPORT: " << htons(udph.uh_dport) << std::endl;
       // std::cout << "THIS IS MY SOURCEPORT: " << htons(udph.uh_sport) << std::endl;
@@ -265,6 +282,7 @@ void handle_client(int client_socket, string wanIP)
           }
           else if (std::holds_alternative<TCPHeader>(datagram.transportHeader.header))
           {
+            cout << "TCP HEADER" << endl;
             // Variant is TCPHeader
             TCPHeader &tcpHeader = std::get<TCPHeader>(datagram.transportHeader.header);
             tcpHeader.sourcePort = translatedPort;
@@ -278,9 +296,7 @@ void handle_client(int client_socket, string wanIP)
       {
         u_int16_t destPort = udph.uh_dport;
         int destPortInt = ntohs(destPort);
-        // convert to int
 
-        // print wanToLan
         for (const auto &[wanPort, lanIp] : wanToLan)
         {
           std::cout << "WAN Port: " << wanPort << std::endl;
