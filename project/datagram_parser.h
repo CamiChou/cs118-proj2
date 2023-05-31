@@ -62,4 +62,7 @@ struct Datagram
 
 Datagram parseIPDatagram(const std::string &hexString);
 struct iphdr DatagramToIphdr(const Datagram &datagram);
+struct udphdr UDPHeaderToUdphdr(const UDPHeader &udpHeader);
+struct tcphdr TCPHeaderToTcphdr(const TCPHeader &tcpHeader);
+
 #endif // DATAGRAM_PARSER_H

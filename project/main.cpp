@@ -7,6 +7,8 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
+#include <netinet/udp.h>
+#include <netinet/tcp.h>
 #include <unistd.h>
 #include <thread>
 #include <cstring>
@@ -21,6 +23,27 @@ const int BUFFER_SIZE = 2048;
 map<pair<string, int>, int> naptTable;
 map<string, int> address_to_socket;
 vector<string> clientIPs;
+
+void printBufferAsHex(const unsigned char *buffer, int size)
+{
+  for (int i = 0; i < size; ++i)
+  {
+    int byte = static_cast<unsigned char>(buffer[i]);
+    if (byte < 16)
+      std::cout << '0';
+    std::cout << std::hex << byte << ' ';
+  }
+  std::cout << std::dec << std::endl;
+}
+
+struct PseudoHeader
+{
+  uint32_t sourceAddress;
+  uint32_t destinationAddress;
+  uint8_t reserved;
+  uint8_t protocol;
+  uint16_t length;
+};
 
 std::string calculateNetworkAddress(const std::string &ipAddress, const std::string &subnetMask)
 {
@@ -116,6 +139,7 @@ void handle_client(int client_socket, string wanIP)
     {
       ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(buffer[i]);
     }
+
     std::string hexString = ss.str();
     Datagram datagram = parseIPDatagram(hexString);
 
@@ -128,12 +152,6 @@ void handle_client(int client_socket, string wanIP)
       cout << "TTL expired. Dropping packet" << endl;
       return;
     }
-
-    iph->check = 0;
-    memcpy(buffer, iph, sizeof(struct iphdr));
-    unsigned short new_checksum = compute_checksum((unsigned short *)buffer, iph->ihl * 4);
-    iph->check = new_checksum;
-    memcpy(buffer, iph, sizeof(struct iphdr));
 
     // forward packet locally
     std::string subnetMask24 = "255.255.255.0";
@@ -149,7 +167,24 @@ void handle_client(int client_socket, string wanIP)
 
     if (sameSubnet)
     {
+      iph->check = 0;
+      memcpy(buffer, iph, sizeof(struct iphdr));
+
+      std::cout << "Buffer when check is 0: " << std::endl;
+      printBufferAsHex(buffer, BUFFER_SIZE);
+
+      unsigned short new_checksum = compute_checksum((unsigned short *)buffer, iph->ihl * 4);
+      iph->check = new_checksum;
+
+      std::cout << "CHECKSUM" << iph->check << std::endl;
+
+      memcpy(buffer, iph, sizeof(struct iphdr));
+
       std::cout << "SAME SUBNET, GONNA SEND" << std::endl;
+
+      std::cout << "Buffer: " << std::endl;
+      printBufferAsHex(buffer, BUFFER_SIZE);
+
       send(address_to_socket[datagram.ipHeader.destinationIP], buffer, num_bytes, 0);
     }
 
@@ -159,11 +194,17 @@ void handle_client(int client_socket, string wanIP)
 
       int destport;
       int sourceport;
+      struct udphdr udph;
+      struct tcphdr tcph;
+      PseudoHeader myPsuedo;
       // Check the active type of the variant
       if (std::holds_alternative<UDPHeader>(datagram.transportHeader.header))
       {
         // Variant is UDPHeader
+        udph = UDPHeaderToUdphdr(std::get<UDPHeader>(datagram.transportHeader.header));
+        udph.uh_sum = 0;
         UDPHeader &udpHeader = std::get<UDPHeader>(datagram.transportHeader.header);
+
         destport = udpHeader.destinationPort;
         sourceport = udpHeader.sourcePort;
         std::cout << "WOW its a udp header" << std::endl;
@@ -171,7 +212,10 @@ void handle_client(int client_socket, string wanIP)
       else if (std::holds_alternative<TCPHeader>(datagram.transportHeader.header))
       {
         // Variant is TCPHeader
+        tcph = TCPHeaderToTcphdr(std::get<TCPHeader>(datagram.transportHeader.header));
+        tcph.th_sum = 0;
         TCPHeader &tcpHeader = std::get<TCPHeader>(datagram.transportHeader.header);
+
         destport = tcpHeader.destinationPort;
         sourceport = tcpHeader.sourcePort;
         std::cout << "WOW its a tcp header" << std::endl;
@@ -184,11 +228,11 @@ void handle_client(int client_socket, string wanIP)
       pair<string, int> destKey = make_pair(datagram.ipHeader.destinationIP, destport);
       pair<string, int> sourceKey = make_pair(datagram.ipHeader.sourceIP, sourceport);
 
-      for (const auto &[lanIp, wanPort] : naptTable)
-      {
-        std::cout << "LAN IP: " << lanIp.first << "LAN Port:" << lanIp.second << std::endl;
-        std::cout << "WAN Port: " << wanPort << std::endl;
-      }
+      // for (const auto &[lanIp, wanPort] : naptTable)
+      // {
+      //   std::cout << "LAN IP: " << lanIp.first << "LAN Port:" << lanIp.second << std::endl;
+      //   std::cout << "WAN Port: " << wanPort << std::endl;
+      // }
 
       // Check if the entry exists in the NAPT table
       if (naptTable.count(sourceKey) > 0)
@@ -199,35 +243,99 @@ void handle_client(int client_socket, string wanIP)
         {
           // Variant is UDPHeader
           UDPHeader &udpHeader = std::get<UDPHeader>(datagram.transportHeader.header);
-          // udpHeader.destinationPort = translatedPort; // make equal WAN port instead
-          udpHeader.sourcePort = translatedPort;
-          std::cout << "YAYAY THIS IS MY SOURCE PORT: " << udpHeader.sourcePort << std::endl;
+          udpHeader.sourcePort = htons(translatedPort);
+          std::cout << "YAYAY THIS IS MY SOURCE PORT: " << ntohs(udpHeader.sourcePort) << std::endl;
           datagram.ipHeader.sourceIP = wanIP;
+          myPsuedo.length = udph.uh_ulen;
+
           std::cout << "YAYAY THIS IS MY DEST PORT: " << udpHeader.destinationPort << std::endl;
 
-          // datagram.ipHeader.destinationIP = wanIP;
+          inet_pton(AF_INET, datagram.ipHeader.sourceIP.c_str(), &(myPsuedo.sourceAddress));
+
+          inet_pton(AF_INET, datagram.ipHeader.destinationIP.c_str(), &(myPsuedo.destinationAddress));
+
+          char sourceIP[INET_ADDRSTRLEN];
+          inet_ntop(AF_INET, &(myPsuedo.sourceAddress), sourceIP, INET_ADDRSTRLEN);
+
+          // Print the IP address
+          std::cout << "THIS IS MY SOURCE IP: " << sourceIP << std::endl;
+
+          myPsuedo.reserved = 0;
+          myPsuedo.protocol = datagram.ipHeader.protocol;
+
+          std::cout << "Printing Psuedo: " << std::endl;
+          unsigned char *bytes = reinterpret_cast<unsigned char *>(&myPsuedo);
+          std::size_t size = sizeof(myPsuedo);
+
+          for (std::size_t i = 0; i < size; ++i)
+          {
+            std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(bytes[i]) << " ";
+          }
+          std::cout << std::endl;
+
+          std::cout << "DONE" << std::endl;
         }
         else if (std::holds_alternative<TCPHeader>(datagram.transportHeader.header))
         {
           // Variant is TCPHeader
           TCPHeader &tcpHeader = std::get<TCPHeader>(datagram.transportHeader.header);
-          // tcpHeader.destinationPort = translatedPort;
           tcpHeader.sourcePort = translatedPort;
           std::cout << "YAYAY THIS IS MY SOURCE PORT: " << tcpHeader.sourcePort << std::endl;
           datagram.ipHeader.sourceIP = wanIP;
           std::cout << "YAYAY THIS IS MY DEST PORT: " << tcpHeader.destinationPort << std::endl;
-          // datagram.ipHeader.destinationIP = wanIP;
         }
 
         fflush(stdout);
         std::cout << "THIS IS MY Dest IP: " << datagram.ipHeader.destinationIP << std::endl;
         std::cout << "THIS IS MY Source IP: " << datagram.ipHeader.sourceIP << std::endl;
+        iph->saddr = inet_addr(datagram.ipHeader.sourceIP.c_str());
+        iph->daddr = inet_addr(datagram.ipHeader.destinationIP.c_str());
+        iph->check = 0;
+        memcpy(buffer, iph, sizeof(struct iphdr));
+        unsigned short new_checksum = compute_checksum((unsigned short *)buffer, iph->ihl * 4);
+        iph->check = new_checksum;
+        memcpy(buffer, iph, sizeof(struct iphdr));
 
-        send(address_to_socket[datagram.ipHeader.destinationIP], buffer, num_bytes, 0);
+        // std::cout << "BEFOOREEEE::::" << std::endl;
+        // printBufferAsHex(buffer, num_bytes);
+
+        char *pseudoBuffer = new char[sizeof(PseudoHeader) + sizeof(struct udphdr)];
+        memcpy(pseudoBuffer, &myPsuedo, sizeof(PseudoHeader));                     // insert pseudo header into buffer
+        memcpy(pseudoBuffer + sizeof(PseudoHeader), &udph, sizeof(struct udphdr)); // insert udp header into buffer
+
+        // Calculate the UDP checksum
+        unsigned short myChecksum = compute_checksum(reinterpret_cast<unsigned short *>(pseudoBuffer), sizeof(PseudoHeader) + sizeof(struct udphdr));
+        udph.uh_sum = myChecksum;
+
+        // std::cout << "PSEUDO CHECKSUM" << myChecksum << std::endl;
+
+        memcpy(pseudoBuffer + sizeof(PseudoHeader), &udph, sizeof(struct udphdr)); // insert udp header into buffer
+
+        // reconstruct buffer with ip header and new udp header and original data
+        memcpy(buffer, iph, sizeof(struct iphdr));
+        memcpy(buffer + sizeof(struct iphdr), &udph, sizeof(struct udphdr));
+        memcpy(buffer + sizeof(struct iphdr) + sizeof(struct udphdr), buffer + (iph->ihl * 4), myPsuedo.length);
+
+        // std::cout << "BUFFER NOW WITH THE PSEUDOBUFFER IS:::::" << std::endl;
+        // printBufferAsHex(buffer, num_bytes);
+
+        delete[] pseudoBuffer;
+
+        if (address_to_socket.count(datagram.ipHeader.destinationIP) > 0)
+        {
+          send(address_to_socket[datagram.ipHeader.destinationIP], buffer, num_bytes, 0);
+          std::cout << "Heree " << std::endl;
+        }
+        else
+        {
+          send(address_to_socket["0.0.0.0"], buffer, num_bytes, 0);
+          std::cout << "Here INSTEAD " << std::endl;
+        }
+
         std::cout << "SENTTTT" << std::endl;
       }
-
-      std::cout << "Ya so... Not there" << std::endl;
+      else
+        std::cout << "Ya so... Not there" << std::endl;
     }
   }
 
@@ -245,7 +353,6 @@ int main()
 
   ConfigParser parser(configInput);
   parser.parse();
-  // parser.print();
 
   clientIPs.push_back("0.0.0.0");
   for (auto ip : parser.getIpConfig().clientIps)
@@ -253,7 +360,6 @@ int main()
     clientIPs.push_back(ip);
   }
   naptTable = parser.getNaptConfig().convertToMap();
-  // NEED TO MAKE SURE THAT THE NAPT TABLE IS VALID
 
   string wanIP = parser.getIpConfig().wanIP;
 
