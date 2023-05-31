@@ -3,22 +3,29 @@
 #include <stdexcept>
 #include <iostream>
 #include <netinet/ip.h>
+#include <netinet/udp.h>
+#include <netinet/tcp.h>
 #include <arpa/inet.h>
 
-int hexToDecimal(std::string hex) {
+int hexToDecimal(std::string hex)
+{
     int decimal = 0;
     int base = 1;
     int len = hex.length();
-    for (int i = len - 1; i >= 0; i--) {
-        if (hex[i] >= '0' && hex[i] <= '9') {
+    for (int i = len - 1; i >= 0; i--)
+    {
+        if (hex[i] >= '0' && hex[i] <= '9')
+        {
             decimal += (hex[i] - 48) * base;
             base *= 16;
         }
-        else if (hex[i] >= 'A' && hex[i] <= 'F') {
+        else if (hex[i] >= 'A' && hex[i] <= 'F')
+        {
             decimal += (hex[i] - 55) * base;
             base *= 16;
         }
-        else if (hex[i] >= 'a' && hex[i] <= 'f') {
+        else if (hex[i] >= 'a' && hex[i] <= 'f')
+        {
             decimal += (hex[i] - 87) * base;
             base *= 16;
         }
@@ -26,22 +33,25 @@ int hexToDecimal(std::string hex) {
     return decimal;
 }
 
-std::string hexToIP(const std::string &hex) {
+std::string hexToIP(const std::string &hex)
+{
     std::stringstream ss;
     ss << std::dec;
-    for (size_t i = 0; i < hex.length(); i += 2) {
+    for (size_t i = 0; i < hex.length(); i += 2)
+    {
         std::string byte = hex.substr(i, 2);
         int val = std::stoi(byte, nullptr, 16);
-        if (i > 0) ss << ".";
+        if (i > 0)
+            ss << ".";
         ss << val;
     }
     return ss.str();
 }
 
-
 // Parse IP header
-IPHeader parseIPHeader(const std::string& hexString) {
-    
+IPHeader parseIPHeader(const std::string &hexString)
+{
+
     // printf("Parsing IP header...\n");
     IPHeader ipHeader;
     ipHeader.version = hexToDecimal(hexString.substr(0, 1));
@@ -57,7 +67,6 @@ IPHeader parseIPHeader(const std::string& hexString) {
     ipHeader.destinationIP = hexToIP(hexString.substr(32, 8));
     ipHeader.optionsAndPadding = hexToDecimal(hexString.substr(40, 8));
 
-
     // std::cout << "IP Version: " << ipHeader.version << std::endl;
     // std::cout << "IP IHL: " << ipHeader.ihl << std::endl;
     // std::cout << "IP Type of Service: " << ipHeader.typeOfService << std::endl;
@@ -71,12 +80,12 @@ IPHeader parseIPHeader(const std::string& hexString) {
     // std::cout << "IP Destination Address: " << ipHeader.destinationIP << std::endl;
     // std::cout << std::endl;
     // fflush(stdout);
-
     return ipHeader;
 }
 
 // Parse UDP header
-UDPHeader parseUDPHeader(const std::string& hexString) {
+UDPHeader parseUDPHeader(const std::string &hexString)
+{
     // printf("Parsing UDP header...\n");
 
     UDPHeader udpHeader;
@@ -98,7 +107,8 @@ UDPHeader parseUDPHeader(const std::string& hexString) {
 }
 
 // Parse TCP header
-TCPHeader parseTCPHeader(const std::string& hexString) {
+TCPHeader parseTCPHeader(const std::string &hexString)
+{
     // printf("Parsing TCP header...\n");
 
     TCPHeader tcpHeader;
@@ -118,14 +128,14 @@ TCPHeader parseTCPHeader(const std::string& hexString) {
     // std::cout << "TCP Flags: " << tcpHeader.flags << std::endl;
     // std::cout << "TCP Window Size: " << tcpHeader.windowSize << std::endl;
     // std::cout << "TCP Checksum: " << tcpHeader.checksum << std::endl;
-    // std::cout << "TCP Urgent Pointer: " << tcpHeader.urgentPointer << std::endl;  
+    // std::cout << "TCP Urgent Pointer: " << tcpHeader.urgentPointer << std::endl;
     // std::cout << std::endl;
     // fflush(stdout);
-    
     return tcpHeader;
 }
 
-Datagram parseIPDatagram(const std::string& hexString) {
+Datagram parseIPDatagram(const std::string &hexString)
+{
     // printf("Parsing datagram...\n");
     fflush(stdout);
     Datagram datagram;
@@ -134,11 +144,16 @@ Datagram parseIPDatagram(const std::string& hexString) {
     int headerLength = datagram.ipHeader.ihl * 8;
     std::string protocolData = hexString.substr(headerLength, datagram.ipHeader.totalLength - headerLength);
 
-    if (datagram.ipHeader.protocol == 17) {
+    if (datagram.ipHeader.protocol == 17)
+    {
         datagram.transportHeader.header = parseUDPHeader(protocolData);
-    } else if (datagram.ipHeader.protocol == 6) { // TCP
+    }
+    else if (datagram.ipHeader.protocol == 6)
+    { // TCP
         datagram.transportHeader.header = parseTCPHeader(protocolData);
-    } else {
+    }
+    else
+    {
         throw std::runtime_error("Unsupported protocol: " + std::to_string(datagram.ipHeader.protocol));
     }
 
@@ -147,7 +162,8 @@ Datagram parseIPDatagram(const std::string& hexString) {
     return datagram;
 }
 
-struct iphdr DatagramToIphdr(const Datagram& datagram) {
+iphdr DatagramToIphdr(const Datagram &datagram)
+{
     struct iphdr ip_header;
 
     // Convert version and ihl into a single byte
@@ -167,4 +183,39 @@ struct iphdr DatagramToIphdr(const Datagram& datagram) {
     inet_pton(AF_INET, datagram.ipHeader.destinationIP.c_str(), &(ip_header.daddr));
 
     return ip_header;
+}
+
+struct udphdr UDPHeaderToUdphdr(const UDPHeader &udpHeader)
+{
+    struct udphdr udph;
+
+    udph.source = htons(udpHeader.sourcePort);
+    udph.dest = htons(udpHeader.destinationPort);
+    udph.len = htons(udpHeader.length);
+    udph.check = udpHeader.checksum;
+
+    return udph;
+}
+
+struct tcphdr TCPHeaderToTcphdr(const TCPHeader &tcpHeader)
+{
+    struct tcphdr tcph;
+
+    tcph.source = htons(tcpHeader.sourcePort);
+    tcph.dest = htons(tcpHeader.destinationPort);
+    tcph.seq = htonl(tcpHeader.sequenceNumber);
+    tcph.ack_seq = htonl(tcpHeader.acknowledgmentNumber);
+    tcph.doff = 5; // Assuming no options, the TCP header size is always 20 bytes (5 words)
+    // Flags need to be set individually
+    tcph.syn = (tcpHeader.flags.find("SYN") != std::string::npos);
+    tcph.ack = (tcpHeader.flags.find("ACK") != std::string::npos);
+    tcph.fin = (tcpHeader.flags.find("FIN") != std::string::npos);
+    tcph.rst = (tcpHeader.flags.find("RST") != std::string::npos);
+    tcph.psh = (tcpHeader.flags.find("PSH") != std::string::npos);
+    tcph.urg = (tcpHeader.flags.find("URG") != std::string::npos);
+    tcph.window = htons(tcpHeader.windowSize);
+    tcph.check = tcpHeader.checksum;
+    tcph.urg_ptr = htons(tcpHeader.urgentPointer);
+
+    return tcph;
 }

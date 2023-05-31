@@ -75,9 +75,9 @@ void ConfigParser::print() const {
         cout << "Client IP: " << clientIp << endl;
     }
 
-    for (const auto& [lanIp, lanPort] : naptConfig.lanToWanMap) {
+    for (const auto& [lanIp, wanPort] : naptConfig.lanToWanMap) {
         cout << "LAN IP: " << lanIp.first << "LAN Port:" << lanIp.second << endl;
-        cout << "WAN Port: " << lanPort << endl;
+        cout << "WAN Port: " << wanPort << endl;
     }
     cout << endl;
 }

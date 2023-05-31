@@ -4,7 +4,8 @@
 #include <string>
 #include <variant>
 
-struct UDPHeader {
+struct UDPHeader
+{
     UDPHeader() : sourcePort(0), destinationPort(0), length(0), checksum(0) {}
 
     unsigned int sourcePort;
@@ -14,7 +15,8 @@ struct UDPHeader {
     void recomputeChecksum();
 };
 
-struct TCPHeader {
+struct TCPHeader
+{
     TCPHeader() : sourcePort(0), destinationPort(0), sequenceNumber(0), acknowledgmentNumber(0), flags(""), windowSize(0), checksum(0), urgentPointer(0) {}
 
     unsigned int sourcePort;
@@ -28,10 +30,11 @@ struct TCPHeader {
     void recomputeChecksum();
 };
 
-struct IPHeader {
-    IPHeader() : version(0), ihl(0), typeOfService(0), totalLength(0), identification(0), 
-    flagsAndFragmentOffset(0), ttl(0), protocol(0), headerChecksum(0), sourceIP(""), destinationIP("") {} 
-    
+struct IPHeader
+{
+    IPHeader() : version(0), ihl(0), typeOfService(0), totalLength(0), identification(0),
+                 flagsAndFragmentOffset(0), ttl(0), protocol(0), headerChecksum(0), sourceIP(""), destinationIP("") {}
+
     unsigned int version;
     unsigned int ihl;
     unsigned int typeOfService;
@@ -46,15 +49,20 @@ struct IPHeader {
     unsigned int optionsAndPadding;
 };
 
-struct TransportHeader {
+struct TransportHeader
+{
     std::variant<UDPHeader, TCPHeader> header;
 };
 
-struct Datagram {
+struct Datagram
+{
     IPHeader ipHeader;
     TransportHeader transportHeader;
 };
 
-Datagram parseIPDatagram(const std::string& hexString);
-struct iphdr DatagramToIphdr(const Datagram& datagram);
-#endif //DATAGRAM_PARSER_H
+Datagram parseIPDatagram(const std::string &hexString);
+struct iphdr DatagramToIphdr(const Datagram &datagram);
+struct udphdr UDPHeaderToUdphdr(const UDPHeader &udpHeader);
+struct tcphdr TCPHeaderToTcphdr(const TCPHeader &tcpHeader);
+
+#endif // DATAGRAM_PARSER_H
