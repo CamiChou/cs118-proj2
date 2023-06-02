@@ -125,6 +125,7 @@ TCPHeader parseTCPHeader(const std::string &hexString)
     tcpHeader.sequenceNumber = hexToDecimal(hexString.substr(8, 8));
     tcpHeader.acknowledgmentNumber = hexToDecimal(hexString.substr(16, 8));
     tcpHeader.dataOffset = std::stoi(hexString.substr(24, 1), nullptr, 16);
+    tcpHeader.reserved = hexToDecimal(hexString.substr(25, 1));
     tcpHeader.flags = hexToDecimal(hexString.substr(26, 2));
     tcpHeader.windowSize = hexToDecimal(hexString.substr(28, 4));
     tcpHeader.checksum = hexToDecimal(hexString.substr(32, 4));
@@ -143,6 +144,7 @@ TCPHeader parseTCPHeader(const std::string &hexString)
 
     return tcpHeader;
 }
+
 
 Datagram parseIPDatagram(const std::string &hexString)
 {
@@ -182,9 +184,8 @@ struct iphdr DatagramToIphdr(const Datagram &datagram)
     // Convert version and ihl into a single byte
     ip_header.version = datagram.ipHeader.version;
     ip_header.ihl = datagram.ipHeader.ihl;
-
     ip_header.tos = datagram.ipHeader.typeOfService;
-    ip_header.tot_len = htons(datagram.ipHeader.totalLength);
+    ip_header.tot_len = ntohs(datagram.ipHeader.totalLength);
     ip_header.id = htons(datagram.ipHeader.identification);
     ip_header.frag_off = htons(datagram.ipHeader.flagsAndFragmentOffset);
     ip_header.ttl = datagram.ipHeader.ttl;
@@ -219,6 +220,10 @@ struct tcphdr TCPHeaderToTcphdr(const TCPHeader& tcpHeader)
     tcph.th_seq = htonl(tcpHeader.sequenceNumber);
     tcph.th_ack = htonl(tcpHeader.acknowledgmentNumber);
     tcph.th_off = tcpHeader.dataOffset;
+    // std::cout << "TCP header offset is:" << tcpHeader.dataOffset << std::endl;
+    // std::cout << "TCP Header data offset:  ??????" << tcph.th_off << std::endl;
+    // printf("TCP Header length (in 32-bit words): %u\n", tcph.th_off);
+    // printf("TCP Header length (in bytes): %u\n", tcph.th_off * 4);
     tcph.th_flags = tcpHeader.flags;
     tcph.th_win = htons(tcpHeader.windowSize);
     tcph.th_sum = tcpHeader.checksum;

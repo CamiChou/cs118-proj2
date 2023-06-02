@@ -37,7 +37,7 @@ void printBufferAsHex(const unsigned char *buffer, int size)
   std::cout << std::dec << std::endl;
 }
 
-struct PseudoHeader
+struct __attribute__((packed)) PseudoHeader
 {
   uint32_t sourceAddress;
   uint32_t destinationAddress;
@@ -213,6 +213,7 @@ void handle_client(int client_socket, string wanIP)
         // Variant is TCPHeader
         tcph = TCPHeaderToTcphdr(std::get<TCPHeader>(datagram.transportHeader.header));
         tcph.th_sum = 0;
+
         // print tcp header
         // std::cout << "THIS IS MY DESTPORT: " << htons(tcph.th_dport) << std::endl;
         // std::cout << "THIS IS MY SOURCEPORT: " << htons(tcph.th_sport) << std::endl;
@@ -336,25 +337,22 @@ void handle_client(int client_socket, string wanIP)
 
           tcph.th_dport = htons(translatedIpAndPort.second);
           datagram.ipHeader.destinationIP = translatedIpAndPort.first;
-
+          printf("translated destination port: **** %d\n", translatedIpAndPort.second);
 
           // get length of TCP header
           // =====================
           // this is where we're messing up. We need to find the length of the tcp packer
-          unsigned int ipHeaderLength = iph->ihl * 4; // ip header length is in 4-byte words
-          unsigned int totalLength = iph->tot_len;    // total length of the IP datagram
-          myPsuedo.length = totalLength - ipHeaderLength; // TCP segment length is total length minus the IP header length
+          // unsigned int ipHeaderLength = iph->ihl * 4; // ip header length is in 4-byte words
+          // unsigned int totalLength = iph->tot_len;    // total length of the IP datagram
+          // myPsuedo.length = totalLength - ipHeaderLength; // TCP segment length is total length minus the IP header length
 
+          unsigned int tcpHeaderLength = tcph.th_off * 4;
+          unsigned int dataLength = datagram.ipHeader.totalLength - (datagram.ipHeader.ihl * 4) - tcpHeaderLength;
 
-
-          // unsigned int tcpHeaderLength = tcph.th_off * 4;
-          // // get length of data
-          // unsigned int dataLength = datagram.ipHeader.totalLength - (datagram.ipHeader.ihl * 4) - tcpHeaderLength;
-
-          // myPsuedo.length = tcpHeaderLength + dataLength;
+          myPsuedo.length = tcpHeaderLength + dataLength;
           // printf("TCP HEADER LENGTH: %d\n", tcpHeaderLength);
           // printf("DATA LENGTH: %d\n", dataLength);
-          printf("TOTAL LENGTH: %d\n", myPsuedo.length);
+          // printf("TOTAL LENGTH: %d\n", myPsuedo.length);
           //=====================
 
           inet_pton(AF_INET, datagram.ipHeader.sourceIP.c_str(), &(myPsuedo.sourceAddress));
@@ -406,6 +404,61 @@ void handle_client(int client_socket, string wanIP)
         delete[] pseudoBuffer;
       }
       else if (std::holds_alternative<TCPHeader>(datagram.transportHeader.header)) {
+        
+        // print psuedo reserved field
+        printf("PSEUDO RESERVED: %02x\n", myPsuedo.reserved);
+
+        unsigned int payloadLength = htons(iph->tot_len)- iph->ihl*4 - tcph.th_off*4;
+        // Allocate the pseudoBuffer with the size of the pseudo header, the TCP header, and the payload
+        char *pseudoBuffer = new char[sizeof(PseudoHeader) + sizeof(struct tcphdr) + payloadLength];
+
+        std::cout << "PSEUDO BUFFER --------" << std::endl;
+        for (int i = 0; i < sizeof(PseudoHeader) + sizeof(struct tcphdr) + payloadLength; i++)
+        {
+            printf("%02x ", (unsigned char)pseudoBuffer[i]);
+        }
+
+        memcpy(pseudoBuffer, &myPsuedo, sizeof(PseudoHeader));
+
+        std::cout << "PSEUDO BUFFER --------" << std::endl;
+        for (int i = 0; i < sizeof(PseudoHeader) + sizeof(struct tcphdr) + payloadLength; i++)
+        {
+            printf("%02x ", (unsigned char)pseudoBuffer[i]);
+        }
+
+        memcpy(pseudoBuffer + sizeof(PseudoHeader), &tcph, sizeof(struct tcphdr));
+        std::cout << "PSEUDO BUFFER --------" << std::endl;
+        for (int i = 0; i < sizeof(PseudoHeader) + sizeof(struct tcphdr) + payloadLength; i++)
+        {
+            printf("%02x ", (unsigned char)pseudoBuffer[i]);
+        }
+        memcpy(pseudoBuffer + sizeof(PseudoHeader) + sizeof(struct tcphdr), buffer + iph->ihl*4 + tcph.th_off*4, payloadLength);
+        std::cout << "PSEUDO BUFFER --------" << std::endl;
+        for (int i = 0; i < sizeof(PseudoHeader) + sizeof(struct tcphdr) + payloadLength; i++)
+        {
+            printf("%02x ", (unsigned char)pseudoBuffer[i]);
+        }
+
+        // Calculate the TCP checksum
+        unsigned short myChecksum = compute_checksum(reinterpret_cast<unsigned short *>(pseudoBuffer), sizeof(PseudoHeader) + sizeof(struct tcphdr) + payloadLength);
+        tcph.th_sum = myChecksum;
+
+        // Copy the updated TCP header back to the pseudoBuffer
+        // print pseudobuffer
+        
+
+        // WE STIL NEED TCP PAYLOAD
+
+        memcpy(pseudoBuffer + sizeof(PseudoHeader), &tcph, sizeof(struct tcphdr));
+
+        // Reconstruct the original buffer with the IP header, the updated TCP header, and the payload
+        memcpy(buffer, iph, sizeof(struct iphdr));
+        memcpy(buffer + sizeof(struct iphdr), &tcph, sizeof(struct tcphdr));
+        memcpy(buffer + sizeof(struct iphdr) + sizeof(struct tcphdr), buffer + iph->ihl*4 + tcph.th_off*4, payloadLength);
+
+        delete[] pseudoBuffer;
+
+        /*
         // create pseudobuffer in order to checksum!
         char *pseudoBuffer = new char[sizeof(PseudoHeader) + sizeof(struct tcphdr)];
         memcpy(pseudoBuffer, &myPsuedo, sizeof(PseudoHeader));                     // insert pseudo header into buffer
@@ -415,7 +468,7 @@ void handle_client(int client_socket, string wanIP)
         unsigned short myChecksum = compute_checksum(reinterpret_cast<unsigned short *>(pseudoBuffer), sizeof(PseudoHeader) + sizeof(struct tcphdr));
         tcph.th_sum = myChecksum;
 
-        std::cout << "PSEUDO CHECKSUM" << myChecksum << std::endl;
+        // std::cout << "PSEUDO CHECKSUM" << myChecksum << std::endl;
         // print pseudo buffer
         std::cout << "PSEUDO BUFFER" << std::endl;
         printf("PSEUDO BUFFER: ");
@@ -424,16 +477,17 @@ void handle_client(int client_socket, string wanIP)
           printf("%02x ", (unsigned char)pseudoBuffer[i]);
         }
 
-        memcpy(pseudoBuffer + sizeof(PseudoHeader), &tcph, sizeof(struct tcphdr)); // insert udp header into buffer
+        memcpy(pseudoBuffer + sizeof(PseudoHeader), &tcph, sizeof(struct tcphdr)); // insert tcp header into buffer
 
         // reconstruct buffer with ip header and new udp header and original data
         memcpy(buffer, iph, sizeof(struct iphdr));
         memcpy(buffer + sizeof(struct iphdr), &tcph, sizeof(struct tcphdr));
         memcpy(buffer + sizeof(struct iphdr) + sizeof(struct tcphdr), buffer + (iph->ihl * 4), myPsuedo.length);
 
-        // std::cout << "BUFFER NOW WITH THE PSEUDOBUFFER IS:::::" << std::endl;
+        // std::cout << "BUFFER NOW AFTER THE PSEUDOBUFFER IS:::::" << std::endl;
         // printBufferAsHex(buffer, num_bytes);
         delete[] pseudoBuffer;
+        */
       }
 
       if (address_to_socket.count(datagram.ipHeader.destinationIP) > 0)

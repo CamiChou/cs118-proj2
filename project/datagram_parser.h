@@ -24,6 +24,7 @@ struct TCPHeader
     unsigned int sequenceNumber;
     unsigned int acknowledgmentNumber;
     unsigned short dataOffset;
+    unsigned short reserved;
     unsigned short flags;
     unsigned int windowSize;
     uint16_t checksum;
