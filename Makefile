@@ -19,6 +19,12 @@ test2:
 check2:
 	python3 grader/packet_generate.py < scenarios/setting2.json
 
+test3:
+	python3 grader/executor.py project/server scenarios/setting3.json
+
+check3:
+	python3 grader/packet_generate.py < scenarios/setting3.json
+
 out:
 	cat stdout.txt
 
