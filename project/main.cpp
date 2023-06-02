@@ -136,8 +136,6 @@ unsigned short tcp_checksum(struct iphdr *iph, unsigned char *payload, int paylo
     return sum;
 }
 
-
-
 int counter = 0;
 void handle_client(int client_socket, string wanIP)
 {
@@ -239,20 +237,27 @@ void handle_client(int client_socket, string wanIP)
 
       if (isClient) // LAN to WAN
       {
-        pair<string, int> sourceKey = make_pair(datagram.ipHeader.sourceIP, htons(udph.uh_sport));
+        printf("LAN to WAN\n");
+        pair<string, int> sourceKey;
+        if (std::holds_alternative<UDPHeader>(datagram.transportHeader.header))
+          sourceKey = make_pair(datagram.ipHeader.sourceIP, htons(udph.uh_sport));
+        else if (std::holds_alternative<TCPHeader>(datagram.transportHeader.header))
+          sourceKey = make_pair(datagram.ipHeader.sourceIP, htons(tcph->th_sport));
 
-        // for (const auto &[lanIp, wanPort] : lanToWan)
-        // {
-        //   std::cout << "LAN IP: " << lanIp.first << "LAN Port:" << lanIp.second << std::endl;
-        //   std::cout << "WAN Port: " << wanPort << std::endl;
-        // }
+        for (const auto &[lanIp, wanPort] : lanToWan)
+        {
+          std::cout << "LAN IP: " << lanIp.first << "LAN Port:" << lanIp.second << std::endl;
+          std::cout << "WAN Port: " << wanPort << std::endl;
+        }
 
         if (lanToWan.count(sourceKey) > 0)
         {
           // Perform translation using the NAPT table
           int translatedPort = lanToWan[sourceKey];
+          printf("TRANSLATED PORT===: %d\n", translatedPort);
           if (std::holds_alternative<UDPHeader>(datagram.transportHeader.header))
           {
+            printf("hereeeeeeeee (UDP)");
             datagram.ipHeader.sourceIP = wanIP;
             udph.uh_sport = htons(translatedPort);
             myPsuedo.length = udph.uh_ulen;
@@ -286,13 +291,9 @@ void handle_client(int client_socket, string wanIP)
           }
           else if (std::holds_alternative<TCPHeader>(datagram.transportHeader.header))
           {
-            cout << "TCP HEADER" << endl;
-            // Variant is TCPHeader
-            TCPHeader &tcpHeader = std::get<TCPHeader>(datagram.transportHeader.header);
-            tcpHeader.sourcePort = translatedPort;
-            std::cout << "YAYAY THIS IS MY SOURCE PORT: " << tcpHeader.sourcePort << std::endl;
+            printf("hereeeeeeeee (TCP)");
+            tcph->th_sport = htons(translatedPort);
             datagram.ipHeader.sourceIP = wanIP;
-            std::cout << "YAYAY THIS IS MY DEST PORT: " << tcpHeader.destinationPort << std::endl;
           }
         }
       }
