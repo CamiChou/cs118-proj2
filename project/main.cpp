@@ -176,8 +176,18 @@ void handle_client(int client_socket, string wanIP)
     if (iph->ttl <= 0)
     {
       cout << "TTL expired. Dropping packet" << endl;
-      return;
+      continue;
     }
+
+    // check the ip checksum
+    unsigned short checksum = compute_checksum((unsigned short *)buffer, sizeof(struct iphdr));
+    if (checksum != 0)
+    {
+      cout << "Checksum failed. Dropping packet" << endl;
+      continue;
+    }
+
+
 
     // forward packet locally
     std::string subnetMask24 = "255.255.255.0";
