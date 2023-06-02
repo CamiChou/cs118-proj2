@@ -24,6 +24,7 @@ map<pair<string, int>, int> lanToWan;
 map<int, pair<string, int>> wanToLan;
 map<string, int> address_to_socket;
 vector<string> clientIPs;
+int dynamicPort = 49152;
 
 void printBufferAsHex(const unsigned char *buffer, int size)
 {
@@ -249,53 +250,59 @@ void handle_client(int client_socket, string wanIP)
           std::cout << "LAN IP: " << lanIp.first << "LAN Port:" << lanIp.second << std::endl;
           std::cout << "WAN Port: " << wanPort << std::endl;
         }
-
-        if (lanToWan.count(sourceKey) > 0)
+        
+        if (lanToWan.count(sourceKey) == 0)
         {
-          // Perform translation using the NAPT table
-          int translatedPort = lanToWan[sourceKey];
-          printf("TRANSLATED PORT===: %d\n", translatedPort);
-          if (std::holds_alternative<UDPHeader>(datagram.transportHeader.header))
-          {
-            printf("hereeeeeeeee (UDP)");
-            datagram.ipHeader.sourceIP = wanIP;
-            udph.uh_sport = htons(translatedPort);
-            myPsuedo.length = udph.uh_ulen;
-
-            // std::cout << "YAYAY THIS IS MY SOURCE PORT: " << ntohs(udph.uh_sport) << std::endl;
-            // std::cout << "YAYAY THIS IS MY DEST PORT: " << ntohs(udph.uh_dport) << std::endl;
-
-            inet_pton(AF_INET, datagram.ipHeader.sourceIP.c_str(), &(myPsuedo.sourceAddress));
-            inet_pton(AF_INET, datagram.ipHeader.destinationIP.c_str(), &(myPsuedo.destinationAddress));
-
-            char sourceIP[INET_ADDRSTRLEN];
-            inet_ntop(AF_INET, &(myPsuedo.sourceAddress), sourceIP, INET_ADDRSTRLEN);
-
-            // Print the IP address
-            std::cout << "THIS IS MY SOURCE IP: " << sourceIP << std::endl;
-
-            myPsuedo.reserved = 0;
-            myPsuedo.protocol = datagram.ipHeader.protocol;
-
-            std::cout << "Printing Psuedo: " << std::endl;
-            unsigned char *bytes = reinterpret_cast<unsigned char *>(&myPsuedo);
-            std::size_t size = sizeof(myPsuedo);
-
-            for (std::size_t i = 0; i < size; ++i)
-            {
-              std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(bytes[i]) << " ";
-            }
-            std::cout << std::endl;
-
-            std::cout << "DONE" << std::endl;
-          }
-          else if (std::holds_alternative<TCPHeader>(datagram.transportHeader.header))
-          {
-            printf("hereeeeeeeee (TCP)");
-            tcph->th_sport = htons(translatedPort);
-            datagram.ipHeader.sourceIP = wanIP;
-          }
+          // Add to NAPT table
+          printf("Adding to NAPT table\n");
+          lanToWan[sourceKey] = dynamicPort;
+          wanToLan[dynamicPort] = sourceKey;
+          dynamicPort++;
         }
+        // Perform translation using the NAPT table
+        int translatedPort = lanToWan[sourceKey];
+        printf("TRANSLATED PORT===: %d\n", translatedPort);
+        if (std::holds_alternative<UDPHeader>(datagram.transportHeader.header))
+        {
+          printf("hereeeeeeeee (UDP)");
+          datagram.ipHeader.sourceIP = wanIP;
+          udph.uh_sport = htons(translatedPort);
+          myPsuedo.length = udph.uh_ulen;
+
+          // std::cout << "YAYAY THIS IS MY SOURCE PORT: " << ntohs(udph.uh_sport) << std::endl;
+          // std::cout << "YAYAY THIS IS MY DEST PORT: " << ntohs(udph.uh_dport) << std::endl;
+
+          inet_pton(AF_INET, datagram.ipHeader.sourceIP.c_str(), &(myPsuedo.sourceAddress));
+          inet_pton(AF_INET, datagram.ipHeader.destinationIP.c_str(), &(myPsuedo.destinationAddress));
+
+          char sourceIP[INET_ADDRSTRLEN];
+          inet_ntop(AF_INET, &(myPsuedo.sourceAddress), sourceIP, INET_ADDRSTRLEN);
+
+          // Print the IP address
+          std::cout << "THIS IS MY SOURCE IP: " << sourceIP << std::endl;
+
+          myPsuedo.reserved = 0;
+          myPsuedo.protocol = datagram.ipHeader.protocol;
+
+          std::cout << "Printing Psuedo: " << std::endl;
+          unsigned char *bytes = reinterpret_cast<unsigned char *>(&myPsuedo);
+          std::size_t size = sizeof(myPsuedo);
+
+          for (std::size_t i = 0; i < size; ++i)
+          {
+            std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(bytes[i]) << " ";
+          }
+          std::cout << std::endl;
+
+          std::cout << "DONE" << std::endl;
+        }
+        else if (std::holds_alternative<TCPHeader>(datagram.transportHeader.header))
+        {
+          printf("hereeeeeeeee (TCP)");
+          tcph->th_sport = htons(translatedPort);
+          datagram.ipHeader.sourceIP = wanIP;
+        }
+        
       }
       else // is not in Client list: translate from WAN to LAN
       {
@@ -311,7 +318,18 @@ void handle_client(int client_socket, string wanIP)
             std::cout << "WAN Port: " << wanPort << std::endl;
             std::cout << "LAN IP: " << lanIp.first << "LAN Port:" << lanIp.second << std::endl;
           }
-          pair<string, int> translatedIpAndPort = wanToLan[destPortInt];
+          pair<string, int> translatedIpAndPort;
+          // check if destPortInt is in the WAN to LAN map
+          if (wanToLan.count(destPortInt) > 0)
+          {
+            translatedIpAndPort = wanToLan[destPortInt];
+          }
+          else
+          {
+            printf("DROPPING PACKET\n");
+            continue;
+          }
+
           printf("DEST PORT: %d\nTranslated to LAN IP: %s\nTranslated to LAN Port: %d\n", destPortInt, translatedIpAndPort.first.c_str(), translatedIpAndPort.second);
           fflush(stdout);
 
