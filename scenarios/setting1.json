@@ -10,7 +10,7 @@
       "dst_ip": "192.168.1.200",
       "dst_port": 6000,
       "proto": "udp",
-      "payload": "",
+      "payload": "ji",
       "ttl": 64,
       "$comment": "Send a packet from port 1 to port 2"
     }, 
@@ -22,7 +22,7 @@
       "dst_ip": "192.168.1.200",
       "dst_port": 6000,
       "proto": "udp",
-      "payload": "",
+      "payload": "ji",
       "ttl": 63,
       "$comment": "Expect to receive the packet at port 2, with TTL-1"
     },

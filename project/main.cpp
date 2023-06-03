@@ -172,7 +172,6 @@ void handle_client(int client_socket, string wanIP)
       return;
     }
 
-    
     if (iph->ttl <= 1)
     {
       cout << "TTL expired. Dropping packet" << endl;
@@ -193,26 +192,7 @@ void handle_client(int client_socket, string wanIP)
     }
     else if (iph->protocol == IPPROTO_UDP)
     {
-      PseudoHeader myPsuedo;
-      struct udphdr udph;
-      memcpy(&udph, buffer + iph->ihl * 4, sizeof(struct udphdr));
-      myPsuedo.length = udph.uh_ulen;
-      myPsuedo.sourceAddress = iph->saddr;
-      myPsuedo.destinationAddress = iph->daddr;
-
-      char sourceIP[INET_ADDRSTRLEN];
-      inet_ntop(AF_INET, &(myPsuedo.sourceAddress), sourceIP, INET_ADDRSTRLEN);
-      myPsuedo.reserved = 0;
-      myPsuedo.protocol = IPPROTO_UDP;
-
-      char *pseudoBuffer = new char[sizeof(PseudoHeader) + sizeof(struct udphdr)];
-      memcpy(pseudoBuffer, &myPsuedo, sizeof(PseudoHeader));                     // insert pseudo header into buffer
-      memcpy(pseudoBuffer + sizeof(PseudoHeader), &udph, sizeof(struct udphdr)); // insert udp header into buffer
-
-      // Calculate the UDP checksum
-      unsigned short myChecksum = compute_checksum(reinterpret_cast<unsigned short *>(pseudoBuffer), sizeof(PseudoHeader) + sizeof(struct udphdr));
-        
-      delete[] pseudoBuffer;
+      unsigned short myChecksum = udp_checksum(iph, (struct udphdr *)(buffer + iph->ihl * 4), buffer + iph->ihl * 4 + sizeof(struct udphdr), htons(iph->tot_len) - iph->ihl * 4 - sizeof(struct udphdr));
       if (myChecksum != 0)
       {
         cout << "UDP Checksum failed. Dropping packet" << endl;
@@ -221,6 +201,8 @@ void handle_client(int client_socket, string wanIP)
     }
     
     bool sameSubnet = fromSameSubnet(iph->saddr, iph->daddr);
+    printf("Source IP: %s\n", ipToString(iph->saddr).c_str());
+    printf("Destination IP: %s\n", ipToString(iph->daddr).c_str());
     std::cout << "Same subnet: = " << sameSubnet << std::endl;
     fflush(stdout);
 
