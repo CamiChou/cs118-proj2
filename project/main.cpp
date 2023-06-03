@@ -50,11 +50,9 @@ struct PseudoHeader
 };
 
 bool fromSameSubnet(uint32_t ip1, uint32_t ip2) {
-    // Convert the IP addresses from network byte order to host byte order
     uint32_t ip1_host_order = ntohl(ip1);
     uint32_t ip2_host_order = ntohl(ip2);
 
-    // Compare the top 24 bits (the /24 subnet)
     return (ip1_host_order >> 8) == (ip2_host_order >> 8);
 }
 string ipToString(uint32_t address)
@@ -121,23 +119,10 @@ void handle_client(int client_socket, string wanIP)
   uint8_t buffer[BUFFER_SIZE];
   int num_bytes = recv(client_socket, buffer, BUFFER_SIZE, 0);
 
-  // while (true)
   while (num_bytes > 0)
   {
-    // get the packet from the client
-    // int num_bytes = recv(client_socket, buffer, BUFFER_SIZE, 0);
-    // if (num_bytes == -1)
-    // {
-    //   perror("Error with receiving packet data");
-    //   continue;
-    // }
-    // else if (num_bytes == 0)
-    // {
-    //   printf("empty\n");
-    //   continue;
-    // }
-    printf("Received packet from client\n\t");
-    printBufferAsHex(buffer, num_bytes);
+    // printf("Received packet from client\n\t");
+    // printBufferAsHex(buffer, num_bytes);
 
     struct iphdr *iph = (struct iphdr *)buffer;
 
@@ -145,20 +130,18 @@ void handle_client(int client_socket, string wanIP)
     unsigned short checksum = compute_checksum((unsigned short *)iph, iph->ihl * 4);
     if (checksum != 0)
     {
-      cout << "IP Checksum failed. Dropping packet\n\t";
-      printBufferAsHex(buffer, num_bytes);
+      // cout << "IP Checksum failed. Dropping packet\n\t";
+      // printBufferAsHex(buffer, num_bytes);
       num_bytes = recv(client_socket, buffer, BUFFER_SIZE, 0);
       continue;
-      // return;
     }
     // check the ttl
     if (iph->ttl <= 1)
     {
-      cout << "TTL expired. Dropping packet\n\t";
-      printBufferAsHex(buffer, num_bytes);
+      // cout << "TTL expired. Dropping packet\n\t";
+      // printBufferAsHex(buffer, num_bytes);
       num_bytes = recv(client_socket, buffer, BUFFER_SIZE, 0);
       continue;
-      // return;
     }
     iph->ttl -= 1;
 
@@ -168,8 +151,8 @@ void handle_client(int client_socket, string wanIP)
       unsigned short myChecksum = transport_checksum(iph, buffer + iph->ihl * 4);
       if (myChecksum != 0)
       {
-        cout << "TCP Checksum failed. Dropping packet\n\t";
-        printBufferAsHex(buffer, num_bytes);
+        // cout << "TCP Checksum failed. Dropping packet\n\t";
+        // printBufferAsHex(buffer, num_bytes);
         num_bytes = recv(client_socket, buffer, BUFFER_SIZE, 0);
         continue;
       }
@@ -179,8 +162,8 @@ void handle_client(int client_socket, string wanIP)
       unsigned short myChecksum = transport_checksum(iph, buffer + iph->ihl * 4);
       if (myChecksum != 0)
       {
-        cout << "UDP Checksum failed. Dropping packet\n\t";
-        printBufferAsHex(buffer, num_bytes);
+        // cout << "UDP Checksum failed. Dropping packet\n\t";
+        // printBufferAsHex(buffer, num_bytes);
         num_bytes = recv(client_socket, buffer, BUFFER_SIZE, 0);
         continue;
       }
@@ -270,8 +253,8 @@ void handle_client(int client_socket, string wanIP)
           } 
           else
           {
-            printf("not recognized...DROPPING PACKET\n\t");
-            printBufferAsHex(buffer, num_bytes);
+            // printf("not recognized...DROPPING PACKET\n\t");
+            // printBufferAsHex(buffer, num_bytes);
             num_bytes = recv(client_socket, buffer, BUFFER_SIZE, 0);
             continue;
           }
@@ -290,7 +273,8 @@ void handle_client(int client_socket, string wanIP)
           }
           else
           {
-            printf("DROPPING PACKET\n");
+            // printf("not recognized...DROPPING PACKET\n\t");
+            // printBufferAsHex(buffer, num_bytes);
             num_bytes = recv(client_socket, buffer, BUFFER_SIZE, 0);
             continue;
           }
