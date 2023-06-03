@@ -117,6 +117,31 @@ unsigned short compute_checksum(unsigned short *addr, int len)
   return result;
 }
 
+unsigned short udp_checksum(struct iphdr *iph, unsigned char *payload, int payload_len)
+{
+    struct PseudoHeader psh;
+    psh.sourceAddress = iph->saddr;
+    psh.destinationAddress = iph->daddr;
+    psh.reserved = 0;
+    psh.protocol = IPPROTO_UDP;
+    psh.length = htons(8 + payload_len); // Header is typically 8 bytes
+
+    cout << "payload" << endl;
+    printBufferAsHex(payload, payload_len);
+    cout << "payload len: " << payload_len << endl;
+
+    int psize = sizeof(struct PseudoHeader) + 8 + payload_len; // Header is typically 8 bytes
+    auto *pseudogram = new uint8_t[psize];
+
+    memcpy(pseudogram, (char *)&psh, sizeof(struct PseudoHeader));
+    memcpy(pseudogram + sizeof(struct PseudoHeader), payload, 8 + payload_len); // Use actual UDP length
+    
+    unsigned short sum = compute_checksum((unsigned short *)pseudogram, psize);
+
+    delete[] pseudogram;
+    return sum;
+}
+
 unsigned short tcp_checksum(struct iphdr *iph, unsigned char *payload, int payload_len)
 {
     struct PseudoHeader psh;
@@ -149,10 +174,15 @@ void handle_client(int client_socket, string wanIP)
   while (true)
   {
     int num_bytes = recv(client_socket, buffer, BUFFER_SIZE, 0);
-    if (num_bytes <= 0)
+    if (num_bytes == -1)
     {
       perror("Empty or Error with receiving packet data");
       continue;
+    }
+    else if (num_bytes == 0)
+    {
+      printf("Client disconnected\n");
+      break;
     }
 
     std::stringstream ss;
@@ -179,16 +209,17 @@ void handle_client(int client_socket, string wanIP)
       return;
     }
     iph->ttl -= 1;
+    
     if (iph->ttl <= 0)
     {
       cout << "TTL expired. Dropping packet" << endl;
       return;
     }
 
+    struct tcphdr *tcph; 
+    struct udphdr *udph;
     if (iph->protocol == IPPROTO_TCP)
     {
-      struct tcphdr tcph;
-      memcpy(&tcph, buffer + iph->ihl * 4, sizeof(struct tcphdr));
       unsigned short myChecksum = tcp_checksum(iph, buffer + iph->ihl * 4, htons(iph->tot_len) - iph->ihl * 4);
       if (myChecksum != 0)
       {
@@ -222,7 +253,6 @@ void handle_client(int client_socket, string wanIP)
         cout << "Checksum failed. Dropping packet" << endl;
         continue;
       }
-
     }
     
     // forward packet locally
@@ -481,6 +511,7 @@ void handle_client(int client_socket, string wanIP)
 
 int main()
 {
+
   string configInput;
   string temp;
   while (getline(cin, temp))
