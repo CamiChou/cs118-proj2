@@ -20,9 +20,10 @@ using namespace std;
 const int BUFFER_SIZE = 2048;
 map<pair<string, int>, int> lanToWan;
 map<int, pair<string, int>> wanToLan;
-map<string, int> address_to_socket;
+map<string, int> AddressToSocket;
 vector<string> clientIPs;
 int dynamicPort = 49152;
+int counter = 0;
 
 string wan;
 string lan;
@@ -131,14 +132,12 @@ unsigned short udp_checksum(struct iphdr *iph, struct udphdr *udph, unsigned cha
     return checksum;
 }
 
-int counter = 0;
 void handle_client(int client_socket, string wanIP)
 {
-  address_to_socket[clientIPs[counter]] = client_socket;
+  AddressToSocket[clientIPs[counter]] = client_socket;
   counter++;
 
   uint8_t buffer[BUFFER_SIZE];
-  fflush(stdout);
 
   while (true)
   {
@@ -154,14 +153,6 @@ void handle_client(int client_socket, string wanIP)
       printf("empty\n");
       break;
     }
-
-    std::stringstream ss;
-    for (int i = 0; i < BUFFER_SIZE; ++i)
-    {
-      ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(buffer[i]);
-    }
-
-    std::string hexString = ss.str();
 
     struct iphdr *iph = (struct iphdr *)buffer;
 
@@ -201,18 +192,15 @@ void handle_client(int client_socket, string wanIP)
     }
     
     bool sameSubnet = fromSameSubnet(iph->saddr, iph->daddr);
-    printf("Source IP: %s\n", ipToString(iph->saddr).c_str());
-    printf("Destination IP: %s\n", ipToString(iph->daddr).c_str());
-    std::cout << "Same subnet: = " << sameSubnet << std::endl;
-    fflush(stdout);
+    bool isWan = fromSameSubnet(iph->saddr, inet_addr(wanIP.c_str()));
 
-    if (sameSubnet) // LAN to LAN =================================================
+    if (sameSubnet && !isWan) // LAN to LAN =================================================
     {
       iph->check = 0;
       unsigned short new_checksum = compute_checksum((unsigned short *)buffer, iph->ihl * 4);
       iph->check = new_checksum;
 
-      send(address_to_socket[ipToString(iph->daddr)], buffer, num_bytes, 0);
+      send(AddressToSocket[ipToString(iph->daddr)], buffer, num_bytes, 0);
     }
     else
     {
@@ -315,12 +303,12 @@ void handle_client(int client_socket, string wanIP)
         tcph->th_sum = myChecksum; 
       }
 
-      if (address_to_socket.count(ipToString(iph->daddr)) > 0)
-        send(address_to_socket[ipToString(iph->daddr)], buffer, num_bytes, 0);
+      if (AddressToSocket.count(ipToString(iph->daddr)) > 0)
+        send(AddressToSocket[ipToString(iph->daddr)], buffer, num_bytes, 0);
       else
       {
         printf("unknown\n");
-        send(address_to_socket["0.0.0.0"], buffer, num_bytes, 0);
+        send(AddressToSocket["0.0.0.0"], buffer, num_bytes, 0);
       }
     }
   }
