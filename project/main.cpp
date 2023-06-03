@@ -26,6 +26,9 @@ map<string, int> address_to_socket;
 vector<string> clientIPs;
 int dynamicPort = 49152;
 
+string wan;
+string lan;
+
 void printBufferAsHex(const unsigned char *buffer, int size)
 {
   for (int i = 0; i < size; ++i)
@@ -88,8 +91,17 @@ std::string calculateNetworkAddress(const std::string &ipAddress, const std::str
 }
 
 bool isSameSubnet(const std::string first, const std::string second, const std::string subnetMask)
+
 {
   return calculateNetworkAddress(first, subnetMask) == calculateNetworkAddress(second, subnetMask);
+}
+bool fromSameSubnet(uint32_t ip1, uint32_t ip2) {
+    // Convert the IP addresses from network byte order to host byte order
+    uint32_t ip1_host_order = ntohl(ip1);
+    uint32_t ip2_host_order = ntohl(ip2);
+
+    // Compare the top 24 bits (the /24 subnet)
+    return (ip1_host_order >> 8) == (ip2_host_order >> 8);
 }
 
 unsigned short compute_checksum(unsigned short *addr, int len)
@@ -233,12 +245,13 @@ void handle_client(int client_socket, string wanIP)
       struct udphdr udph;
       memcpy(&udph, buffer + iph->ihl * 4, sizeof(struct udphdr));
       myPsuedo.length = udph.uh_ulen;
-      inet_pton(AF_INET, datagram.ipHeader.sourceIP.c_str(), &(myPsuedo.sourceAddress));
-      inet_pton(AF_INET, datagram.ipHeader.destinationIP.c_str(), &(myPsuedo.destinationAddress));
+      myPsuedo.sourceAddress = iph->saddr;
+      myPsuedo.destinationAddress = iph->daddr;
+
       char sourceIP[INET_ADDRSTRLEN];
       inet_ntop(AF_INET, &(myPsuedo.sourceAddress), sourceIP, INET_ADDRSTRLEN);
       myPsuedo.reserved = 0;
-      myPsuedo.protocol = datagram.ipHeader.protocol;
+      myPsuedo.protocol = IPPROTO_UDP;
 
       char *pseudoBuffer = new char[sizeof(PseudoHeader) + sizeof(struct udphdr)];
       memcpy(pseudoBuffer, &myPsuedo, sizeof(PseudoHeader));                     // insert pseudo header into buffer
@@ -255,15 +268,7 @@ void handle_client(int client_socket, string wanIP)
       }
     }
     
-    // forward packet locally
-    std::string subnetMask24 = "255.255.255.0";
-
-    // print source and destination ips
-    std::cout << "Source IP: " << datagram.ipHeader.sourceIP << std::endl;
-    std::cout << "Destination IP: " << datagram.ipHeader.destinationIP << std::endl;
-
-    // check if the source and destination are on the same subnet
-    bool sameSubnet = isSameSubnet(datagram.ipHeader.sourceIP, datagram.ipHeader.destinationIP, subnetMask24);
+    bool sameSubnet = fromSameSubnet(iph->saddr, iph->daddr);
     std::cout << "Same subnet: = " << sameSubnet << std::endl;
     fflush(stdout);
 
@@ -272,20 +277,8 @@ void handle_client(int client_socket, string wanIP)
       iph->check = 0;
       memcpy(buffer, iph, sizeof(struct iphdr));
 
-      std::cout << "Buffer when check is 0: " << std::endl;
-      printBufferAsHex(buffer, BUFFER_SIZE);
-
       unsigned short new_checksum = compute_checksum((unsigned short *)buffer, iph->ihl * 4);
       iph->check = new_checksum;
-
-      std::cout << "CHECKSUM" << iph->check << std::endl;
-
-      memcpy(buffer, iph, sizeof(struct iphdr));
-
-      std::cout << "SAME SUBNET, GONNA SEND" << std::endl;
-
-      std::cout << "Buffer: " << std::endl;
-      printBufferAsHex(buffer, BUFFER_SIZE);
 
       send(address_to_socket[datagram.ipHeader.destinationIP], buffer, num_bytes, 0);
     }
@@ -530,7 +523,8 @@ int main()
   lanToWan = parser.getNaptConfig().getLtoW();
   wanToLan = parser.getNaptConfig().getWtoL();
 
-  string wanIP = parser.getIpConfig().wanIP;
+  wan = parser.getIpConfig().wanIP;
+  lan = parser.getIpConfig().lanIP;
 
   int serverSocket;
   struct sockaddr_in serverAddr;
@@ -574,7 +568,7 @@ int main()
     }
     // cout << "Connection accepted, spawning handler thread...\n" << endl;
 
-    thread client_thread(handle_client, client_socket, wanIP);
+    thread client_thread(handle_client, client_socket, wan);
     client_thread.detach();
   }
   return 0;
