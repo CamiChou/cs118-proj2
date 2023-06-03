@@ -15,7 +15,6 @@
 #include <arpa/inet.h>
 #include <iomanip>
 #include "config_parser.h"
-// #include "datagram_parser.h"
 
 using namespace std;
 
@@ -92,7 +91,6 @@ unsigned short compute_checksum(unsigned short *addr, int len)
   return result;
 }
 
-
 unsigned short tcp_checksum(struct iphdr *iph, unsigned char *payload, int payload_len)
 {
     struct PseudoHeader psh;
@@ -132,7 +130,6 @@ unsigned short udp_checksum(struct iphdr *iph, struct udphdr *udph, unsigned cha
     delete[] pseudogram;
     return checksum;
 }
-
 
 int counter = 0;
 void handle_client(int client_socket, string wanIP)
@@ -174,13 +171,14 @@ void handle_client(int client_socket, string wanIP)
       cout << "IP Checksum failed. Dropping packet" << endl;
       return;
     }
-    iph->ttl -= 1;
+
     
-    if (iph->ttl <= 0)
+    if (iph->ttl <= 1)
     {
       cout << "TTL expired. Dropping packet" << endl;
       return;
     }
+    iph->ttl -= 1;
 
     struct tcphdr *tcph; 
     struct udphdr *udph;
@@ -333,7 +331,6 @@ void handle_client(int client_socket, string wanIP)
           pair<string, int> translatedIpAndPort = wanToLan[destPortInt];
 
           tcph->th_dport = htons(translatedIpAndPort.second);
-          // datagram.ipHeader.destinationIP = translatedIpAndPort.first;
           iph->daddr = inet_addr(translatedIpAndPort.first.c_str());
           printf("translated destination port: **** %d\n", translatedIpAndPort.second);
 
@@ -352,9 +349,6 @@ void handle_client(int client_socket, string wanIP)
           myPsuedo.protocol = iph->protocol;
         }
       }
-
-      // iph->saddr = inet_addr(datagram.ipHeader.sourceIP.c_str());
-      // iph->daddr = inet_addr(datagram.ipHeader.destinationIP.c_str());
       iph->check = 0;
       memcpy(buffer, iph, sizeof(struct iphdr));
       unsigned short new_checksum = compute_checksum((unsigned short *)buffer, iph->ihl * 4);
@@ -376,10 +370,8 @@ void handle_client(int client_socket, string wanIP)
         tcph->th_sum = myChecksum; 
       }
 
-      // if (address_to_socket.count(datagram.ipHeader.destinationIP) > 0)
       if (address_to_socket.count(ipToString(iph->daddr)) > 0)
       {
-        // send(address_to_socket[datagram.ipHeader.destinationIP], buffer, num_bytes, 0);
         send(address_to_socket[ipToString(iph->daddr)], buffer, num_bytes, 0);
         std::cout << "Heree " << std::endl;
       }
