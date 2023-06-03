@@ -176,13 +176,13 @@ void handle_client(int client_socket, string wanIP)
     if (checksum != 0)
     {
       cout << "Checksum failed. Dropping packet" << endl;
-      continue;
+      return;
     }
     iph->ttl -= 1;
     if (iph->ttl <= 0)
     {
       cout << "TTL expired. Dropping packet" << endl;
-      continue;
+      return;
     }
 
     if (iph->protocol == IPPROTO_TCP)
