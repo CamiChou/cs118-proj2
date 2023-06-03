@@ -54,7 +54,6 @@ IPHeader parseIPHeader(const std::string &hexString)
 
     // printf("Parsing IP header...\n");
     // fflush(stdout);
-
     IPHeader ipHeader;
     ipHeader.version = hexToDecimal(hexString.substr(0, 1));
     ipHeader.ihl = hexToDecimal(hexString.substr(1, 1));
