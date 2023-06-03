@@ -78,7 +78,7 @@
       "proto": "udp",
       "payload": "",
       "ttl": 20,
-      "$comment": "In our problem setting, (192.168.1.100, 10000) <-> 49152 is nor related to the WAN port"
+      "$comment": "In our problem setting, (192.168.1.100, 10000) <-> 49152 is now related to the WAN port"
     },
     {
       "kind": "expect",

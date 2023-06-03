@@ -119,21 +119,25 @@ void handle_client(int client_socket, string wanIP)
   counter++;
 
   uint8_t buffer[BUFFER_SIZE];
+  int num_bytes = recv(client_socket, buffer, BUFFER_SIZE, 0);
 
-  while (true)
+  // while (true)
+  while (num_bytes > 0)
   {
     // get the packet from the client
-    int num_bytes = recv(client_socket, buffer, BUFFER_SIZE, 0);
-    if (num_bytes == -1)
-    {
-      perror("Error with receiving packet data");
-      continue;
-    }
-    else if (num_bytes == 0)
-    {
-      printf("empty\n");
-      break;
-    }
+    // int num_bytes = recv(client_socket, buffer, BUFFER_SIZE, 0);
+    // if (num_bytes == -1)
+    // {
+    //   perror("Error with receiving packet data");
+    //   continue;
+    // }
+    // else if (num_bytes == 0)
+    // {
+    //   printf("empty\n");
+    //   continue;
+    // }
+    printf("Received packet from client\n\t");
+    printBufferAsHex(buffer, num_bytes);
 
     struct iphdr *iph = (struct iphdr *)buffer;
 
@@ -141,14 +145,20 @@ void handle_client(int client_socket, string wanIP)
     unsigned short checksum = compute_checksum((unsigned short *)iph, iph->ihl * 4);
     if (checksum != 0)
     {
-      cout << "IP Checksum failed. Dropping packet" << endl;
-      return;
+      cout << "IP Checksum failed. Dropping packet\n\t";
+      printBufferAsHex(buffer, num_bytes);
+      num_bytes = recv(client_socket, buffer, BUFFER_SIZE, 0);
+      continue;
+      // return;
     }
     // check the ttl
     if (iph->ttl <= 1)
     {
-      cout << "TTL expired. Dropping packet" << endl;
-      return;
+      cout << "TTL expired. Dropping packet\n\t";
+      printBufferAsHex(buffer, num_bytes);
+      num_bytes = recv(client_socket, buffer, BUFFER_SIZE, 0);
+      continue;
+      // return;
     }
     iph->ttl -= 1;
 
@@ -158,7 +168,9 @@ void handle_client(int client_socket, string wanIP)
       unsigned short myChecksum = transport_checksum(iph, buffer + iph->ihl * 4);
       if (myChecksum != 0)
       {
-        cout << "TCP Checksum failed. Dropping packet" << endl;
+        cout << "TCP Checksum failed. Dropping packet\n\t";
+        printBufferAsHex(buffer, num_bytes);
+        num_bytes = recv(client_socket, buffer, BUFFER_SIZE, 0);
         continue;
       }
     }
@@ -167,7 +179,9 @@ void handle_client(int client_socket, string wanIP)
       unsigned short myChecksum = transport_checksum(iph, buffer + iph->ihl * 4);
       if (myChecksum != 0)
       {
-        cout << "UDP Checksum failed. Dropping packet" << endl;
+        cout << "UDP Checksum failed. Dropping packet\n\t";
+        printBufferAsHex(buffer, num_bytes);
+        num_bytes = recv(client_socket, buffer, BUFFER_SIZE, 0);
         continue;
       }
     }
@@ -182,6 +196,7 @@ void handle_client(int client_socket, string wanIP)
       iph->check = new_checksum;
 
       send(AddressToSocket[ipToString(iph->daddr)], buffer, num_bytes, 0);
+      num_bytes = recv(client_socket, buffer, BUFFER_SIZE, 0);
     }
     else
     {
@@ -255,7 +270,9 @@ void handle_client(int client_socket, string wanIP)
           } 
           else
           {
-            printf("DROPPING PACKET\n");
+            printf("not recognized...DROPPING PACKET\n\t");
+            printBufferAsHex(buffer, num_bytes);
+            num_bytes = recv(client_socket, buffer, BUFFER_SIZE, 0);
             continue;
           }
 
@@ -274,6 +291,7 @@ void handle_client(int client_socket, string wanIP)
           else
           {
             printf("DROPPING PACKET\n");
+            num_bytes = recv(client_socket, buffer, BUFFER_SIZE, 0);
             continue;
           }
 
@@ -302,6 +320,8 @@ void handle_client(int client_socket, string wanIP)
         send(AddressToSocket[ipToString(iph->daddr)], buffer, num_bytes, 0);
       else
         send(AddressToSocket["0.0.0.0"], buffer, num_bytes, 0);
+      
+      num_bytes = recv(client_socket, buffer, BUFFER_SIZE, 0);
     }
   }
 
