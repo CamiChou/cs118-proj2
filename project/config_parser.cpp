@@ -11,6 +11,11 @@ NaptConfig ConfigParser::getNaptConfig() const
     return naptConfig;
 }
 
+std::vector<ACL> ConfigParser::getACL() const
+{
+    return aclConfig;
+}
+
 map<pair<string, int>, int> NaptConfig::getLtoW()
 {
     return lanToWanMap;
@@ -23,6 +28,7 @@ void ConfigParser::parse()
 {
     parseIpConfig();
     parseNaptConfig();
+    parseACLConfig();
 }
 
 void ConfigParser::parseIpConfig()
@@ -83,6 +89,57 @@ void ConfigParser::parseNaptConfig()
         naptConfig.lanToWanMap[make_pair(lanIp, lanPort)] = wanPort;
         naptConfig.wanToLanMap[wanPort] = make_pair(lanIp, lanPort);
     }
+    in = iss.str().substr(iss.tellg());
+}
+
+void ConfigParser::parseACLConfig()
+{
+    istringstream iss(in); // create istringstream from in
+    string line;
+
+    while (getline(iss, line))
+    {
+        if (line.empty())
+            break;
+        // break out on new lines
+
+        ACL acl;
+        stringstream ss(line);
+        string sourceIp, sourcePort, destIp, destPort;
+        ss >> sourceIp >> sourcePort >> destIp >> destPort;
+
+        // Parse source IP and subnet
+        size_t slashIndex = sourceIp.find('/');
+
+        acl.sourceIP = sourceIp.substr(0, slashIndex);
+        acl.subnet = stoi(sourceIp.substr(slashIndex + 1));
+
+        // Parse source port range
+        size_t dashIndex = sourcePort.find('-');
+        if (dashIndex != string::npos)
+        {
+            acl.sourcePortStart = stoi(sourcePort.substr(0, dashIndex));
+            acl.sourcePortEnd = stoi(sourcePort.substr(dashIndex + 1));
+        }
+
+        // Parse destination IP and subnet
+        slashIndex = destIp.find('/');
+        if (slashIndex != string::npos)
+        {
+            acl.destIP = destIp.substr(0, slashIndex);
+            // Subnet is not specified in the given format, so you may need to decide how to handle it
+        }
+
+        // Parse destination port range
+        dashIndex = destPort.find('-');
+        if (dashIndex != string::npos)
+        {
+            acl.destPortStart = stoi(destPort.substr(0, dashIndex));
+            acl.destPortEnd = stoi(destPort.substr(dashIndex + 1));
+        }
+
+        aclConfig.push_back(acl);
+    }
 }
 
 void ConfigParser::print() const
@@ -100,5 +157,20 @@ void ConfigParser::print() const
         cout << "LAN IP: " << lanIp.first << "LAN Port:" << lanIp.second << endl;
         cout << "WAN Port: " << wanPort << endl;
     }
+
+    cout << "PRINTING ACL" << endl;
+    for (const ACL &acl : aclConfig)
+    {
+        cout << "Source IP: " << acl.sourceIP << endl;
+        cout << "SUBNET: " << acl.subnet << endl;
+        cout << "Source Port Start: " << acl.sourcePortStart << endl;
+        cout << "Source Port End: " << acl.sourcePortEnd << endl;
+        cout << "Destination IP: " << acl.destIP << endl;
+        cout << "Destination Port Start: " << acl.destPortStart << endl;
+        cout << "Destination Port End: " << acl.destPortEnd << endl;
+        cout << endl;
+    }
+
+    cout << "FINI";
     cout << endl;
 }

@@ -7,6 +7,17 @@
 #include <sstream>
 using namespace std;
 
+struct ACL
+{
+    string sourceIP;
+    int subnet;
+    int sourcePortStart;
+    int sourcePortEnd;
+    string destIP;
+    int destPortStart;
+    int destPortEnd;
+};
+
 struct IpConfig
 {
     string lanIP;             // router's LAN IP
@@ -28,15 +39,18 @@ private:
     string in;
     IpConfig ipConfig;
     NaptConfig naptConfig;
+    std::vector<ACL> aclConfig;
 
 public:
     ConfigParser(string in);
     IpConfig getIpConfig() const;
     NaptConfig getNaptConfig() const;
+    std::vector<ACL> getACL() const;
     void parse();
     void print() const;
 
 private:
     void parseIpConfig();
     void parseNaptConfig();
+    void parseACLConfig();
 };
