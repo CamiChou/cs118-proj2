@@ -119,22 +119,22 @@ unsigned short compute_checksum(unsigned short *addr, int len)
 
 unsigned short tcp_checksum(struct iphdr *iph, unsigned char *payload, int payload_len)
 {
-    struct PseudoHeader psh;
-    psh.sourceAddress = iph->saddr;
-    psh.destinationAddress = iph->daddr;
-    psh.reserved = 0;
-    psh.protocol = IPPROTO_TCP;
-    psh.length = htons(htons(iph->tot_len) - iph->ihl*4);
+  struct PseudoHeader psh;
+  psh.sourceAddress = iph->saddr;
+  psh.destinationAddress = iph->daddr;
+  psh.reserved = 0;
+  psh.protocol = IPPROTO_TCP;
+  psh.length = htons(htons(iph->tot_len) - iph->ihl * 4);
 
-    int psize = sizeof(struct PseudoHeader) + htons(iph->tot_len) - iph->ihl*4;
-    auto *pseudogram = new uint8_t[psize];
+  int psize = sizeof(struct PseudoHeader) + htons(iph->tot_len) - iph->ihl * 4;
+  auto *pseudogram = new uint8_t[psize];
 
-    memcpy(pseudogram, (char *)&psh, sizeof(struct PseudoHeader));
-    memcpy(pseudogram + sizeof(struct PseudoHeader), payload, htons(iph->tot_len) - iph->ihl*4);
-    unsigned short sum = compute_checksum((unsigned short *)pseudogram, psize);
+  memcpy(pseudogram, (char *)&psh, sizeof(struct PseudoHeader));
+  memcpy(pseudogram + sizeof(struct PseudoHeader), payload, htons(iph->tot_len) - iph->ihl * 4);
+  unsigned short sum = compute_checksum((unsigned short *)pseudogram, psize);
 
-    delete[] pseudogram;
-    return sum;
+  delete[] pseudogram;
+  return sum;
 }
 
 int counter = 0;
@@ -193,7 +193,7 @@ void handle_client(int client_socket, string wanIP)
       if (myChecksum != 0)
       {
         cout << "Checksum failed. Dropping packet" << endl;
-        continue;
+        return;
       }
     }
     else if (iph->protocol == IPPROTO_UDP)
@@ -215,16 +215,15 @@ void handle_client(int client_socket, string wanIP)
 
       // Calculate the UDP checksum
       unsigned short myChecksum = compute_checksum(reinterpret_cast<unsigned short *>(pseudoBuffer), sizeof(PseudoHeader) + sizeof(struct udphdr));
-        
+
       delete[] pseudoBuffer;
       if (myChecksum != 0)
       {
         cout << "Checksum failed. Dropping packet" << endl;
-        continue;
+        return;
       }
-
     }
-    
+
     // forward packet locally
     std::string subnetMask24 = "255.255.255.0";
 
@@ -296,7 +295,7 @@ void handle_client(int client_socket, string wanIP)
           std::cout << "LAN IP: " << lanIp.first << "LAN Port:" << lanIp.second << std::endl;
           std::cout << "WAN Port: " << wanPort << std::endl;
         }
-        
+
         if (lanToWan.count(sourceKey) == 0)
         {
           // Add to NAPT table
@@ -348,7 +347,6 @@ void handle_client(int client_socket, string wanIP)
           tcph->th_sport = htons(translatedPort);
           datagram.ipHeader.sourceIP = wanIP;
         }
-        
       }
       else // is not in Client list: translate from WAN to LAN
       {
@@ -433,8 +431,9 @@ void handle_client(int client_socket, string wanIP)
       unsigned short new_checksum = compute_checksum((unsigned short *)buffer, iph->ihl * 4);
       iph->check = new_checksum;
       memcpy(buffer, iph, sizeof(struct iphdr));
-      
-      if (std::holds_alternative<UDPHeader>(datagram.transportHeader.header)) {
+
+      if (std::holds_alternative<UDPHeader>(datagram.transportHeader.header))
+      {
         // create pseudobuffer in order to checksum!
         char *pseudoBuffer = new char[sizeof(PseudoHeader) + sizeof(struct udphdr)];
         memcpy(pseudoBuffer, &myPsuedo, sizeof(PseudoHeader));                     // insert pseudo header into buffer
@@ -456,10 +455,11 @@ void handle_client(int client_socket, string wanIP)
         // printBufferAsHex(buffer, num_bytes);
         delete[] pseudoBuffer;
       }
-      else if (std::holds_alternative<TCPHeader>(datagram.transportHeader.header)) {
-        unsigned int payloadLength = htons(iph->tot_len)- iph->ihl*4 - tcph->th_off*4;
-        unsigned short myChecksum = tcp_checksum(iph, buffer + iph->ihl*4, htons(iph->tot_len) - iph->ihl*4);
-        tcph->th_sum = myChecksum; 
+      else if (std::holds_alternative<TCPHeader>(datagram.transportHeader.header))
+      {
+        unsigned int payloadLength = htons(iph->tot_len) - iph->ihl * 4 - tcph->th_off * 4;
+        unsigned short myChecksum = tcp_checksum(iph, buffer + iph->ihl * 4, htons(iph->tot_len) - iph->ihl * 4);
+        tcph->th_sum = myChecksum;
       }
 
       if (address_to_socket.count(datagram.ipHeader.destinationIP) > 0)
@@ -548,4 +548,3 @@ int main()
   }
   return 0;
 }
-
