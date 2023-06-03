@@ -262,7 +262,7 @@ void handle_client(int client_socket, string wanIP)
         }
         
         // Perform translation using the NAPT table
-        int translatedPort = lanToWan[sourceKey];
+        uint16_t translatedPort = lanToWan[sourceKey];
         printf("TRANSLATED PORT===: %d\n", translatedPort);
         if (iph->protocol == IPPROTO_UDP)
         {
@@ -332,10 +332,8 @@ void handle_client(int client_socket, string wanIP)
         }
       }
       iph->check = 0;
-      memcpy(buffer, iph, sizeof(struct iphdr));
       unsigned short new_checksum = compute_checksum((unsigned short *)buffer, iph->ihl * 4);
       iph->check = new_checksum;
-      memcpy(buffer, iph, sizeof(struct iphdr));
 
       if (iph->protocol == IPPROTO_UDP) 
       {
@@ -347,7 +345,7 @@ void handle_client(int client_socket, string wanIP)
       }
       else if (iph->protocol == IPPROTO_TCP)
       {
-        unsigned int payloadLength = htons(iph->tot_len)- iph->ihl*4 - tcph->th_off*4;
+        // unsigned int payloadLength = htons(iph->tot_len)- iph->ihl*4 - tcph->th_off*4;
         unsigned short myChecksum = tcp_checksum(iph, buffer + iph->ihl*4, htons(iph->tot_len) - iph->ihl*4);
         tcph->th_sum = myChecksum; 
       }
