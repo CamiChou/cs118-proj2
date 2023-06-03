@@ -152,7 +152,7 @@ void handle_client(int client_socket, string wanIP)
     if (num_bytes <= 0)
     {
       perror("Empty or Error with receiving packet data");
-      continue;
+      return;
     }
 
     std::stringstream ss;
@@ -178,7 +178,11 @@ void handle_client(int client_socket, string wanIP)
       cout << "Checksum failed. Dropping packet" << endl;
       continue;
     }
-
+    if (iph->ttl <= 1)
+    {
+      cout << "Checksum failed. Dropping packet" << endl;
+      continue;
+    }
     iph->ttl -= 1;
 
     if (iph->protocol == IPPROTO_TCP)
