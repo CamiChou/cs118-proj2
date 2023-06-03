@@ -155,6 +155,7 @@ void handle_client(int client_socket, string wanIP)
       return;
     }
 
+    // Look at this later....
     std::stringstream ss;
     for (int i = 0; i < BUFFER_SIZE; ++i)
     {
