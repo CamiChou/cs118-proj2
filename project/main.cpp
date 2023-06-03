@@ -285,7 +285,16 @@ void handle_client(int client_socket, string wanIP)
         {
           destPort = tcph->th_dport;
           int destPortInt = ntohs(destPort);
-          pair<string, int> translatedIpAndPort = wanToLan[destPortInt];
+          pair<string, int> translatedIpAndPort;
+          if (wanToLan.count(destPortInt) > 0)
+          {
+            translatedIpAndPort = wanToLan[destPortInt];
+          }
+          else
+          {
+            printf("DROPPING PACKET\n");
+            continue;
+          }
 
           tcph->th_dport = htons(translatedIpAndPort.second);
           iph->daddr = inet_addr(translatedIpAndPort.first.c_str());
