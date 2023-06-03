@@ -236,13 +236,13 @@ void handle_client(int client_socket, string wanIP)
         if (iph->protocol == IPPROTO_UDP)
         {
           printf("Replacing source port: %d -> %d\n", ntohs(udph->uh_sport), translatedPort);
-          // udph->uh_sport = htons(translatedPort);
+          udph->uh_sport = htons(translatedPort);
           iph->saddr = inet_addr(wanIP.c_str());
         }
         else if (iph->protocol == IPPROTO_TCP)
         {
           printf("Replacing source port: %d -> %d\n", ntohs(tcph->th_sport), translatedPort);
-          tcph->th_sport = htons(translatedPort);
+          // tcph->th_sport = htons(translatedPort);
           iph->saddr = inet_addr(wanIP.c_str());
         } 
         fflush(stdout);
