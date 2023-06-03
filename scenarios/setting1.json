@@ -61,6 +61,22 @@
       "kind": "check",
       "delay": 0.5,
       "$comment": "Sleep for 0.5s and check if the packet is there"
+    },
+    {
+      "kind": "send",
+      "port": 1,
+      "src_ip": "192.168.1.100",
+      "src_port": 5000,
+      "dst_ip": "192.168.1.200",
+      "dst_port": 6000,
+      "proto": "udp",
+      "payload": "",
+      "ttl": 0,
+      "$comment": "Dropped, because of ttl"
+    },
+    {
+      "kind": "check",
+      "delay": 0.5
     }
   ]
 }

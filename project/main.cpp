@@ -176,14 +176,15 @@ void handle_client(int client_socket, string wanIP)
     if (checksum != 0)
     {
       cout << "Checksum failed. Dropping packet" << endl;
-      return;
+      continue;
     }
-    iph->ttl -= 1;
-    if (iph->ttl <= 0)
+
+    if (iph->ttl <= 1)
     {
       cout << "TTL expired. Dropping packet" << endl;
-      return;
+      continue;
     }
+    iph->ttl -= 1;
 
     if (iph->protocol == IPPROTO_TCP)
     {
@@ -193,7 +194,7 @@ void handle_client(int client_socket, string wanIP)
       if (myChecksum != 0)
       {
         cout << "Checksum failed. Dropping packet" << endl;
-        return;
+        continue;
       }
     }
     else if (iph->protocol == IPPROTO_UDP)
@@ -220,7 +221,7 @@ void handle_client(int client_socket, string wanIP)
       if (myChecksum != 0)
       {
         cout << "Checksum failed. Dropping packet" << endl;
-        return;
+        continue;
       }
     }
 
@@ -466,11 +467,13 @@ void handle_client(int client_socket, string wanIP)
       {
         send(address_to_socket[datagram.ipHeader.destinationIP], buffer, num_bytes, 0);
         std::cout << "Heree " << std::endl;
+        return;
       }
       else
       {
         send(address_to_socket["0.0.0.0"], buffer, num_bytes, 0);
         std::cout << "Here INSTEAD " << std::endl;
+        return;
       }
       std::cout << "SENTTTT" << std::endl;
     }
