@@ -31,6 +31,12 @@ test4:
 check4:
 	python3 grader/packet_generate.py < scenarios/setting4.json
 
+test6:
+	python3 grader/executor.py project/server scenarios/setting6.json
+
+check6:
+	python3 grader/packet_generate.py < scenarios/setting6.json
+
 testAll:
 	python3 grader/executor.py project/server scenarios/setting1.json
 	python3 grader/executor.py project/server scenarios/setting2.json

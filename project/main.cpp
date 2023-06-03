@@ -15,7 +15,6 @@
 #include <arpa/inet.h>
 #include <iomanip>
 #include "config_parser.h"
-
 using namespace std;
 
 const int BUFFER_SIZE = 2048;
@@ -93,23 +92,24 @@ unsigned short compute_checksum(unsigned short *addr, int len)
 
 unsigned short tcp_checksum(struct iphdr *iph, unsigned char *payload, int payload_len)
 {
-    struct PseudoHeader psh;
-    psh.sourceAddress = iph->saddr;
-    psh.destinationAddress = iph->daddr;
-    psh.reserved = 0;
-    psh.protocol = IPPROTO_TCP;
-    psh.length = htons(htons(iph->tot_len) - iph->ihl*4);
+  struct PseudoHeader psh;
+  psh.sourceAddress = iph->saddr;
+  psh.destinationAddress = iph->daddr;
+  psh.reserved = 0;
+  psh.protocol = IPPROTO_TCP;
+  psh.length = htons(htons(iph->tot_len) - iph->ihl*4);
 
-    int psize = sizeof(struct PseudoHeader) + htons(iph->tot_len) - iph->ihl*4;
-    auto *pseudogram = new uint8_t[psize];
+  int psize = sizeof(struct PseudoHeader) + htons(iph->tot_len) - iph->ihl*4;
+  auto *pseudogram = new uint8_t[psize];
 
-    memcpy(pseudogram, (char *)&psh, sizeof(struct PseudoHeader));
-    memcpy(pseudogram + sizeof(struct PseudoHeader), payload, htons(iph->tot_len) - iph->ihl*4);
-    unsigned short sum = compute_checksum((unsigned short *)pseudogram, psize);
+  memcpy(pseudogram, (char *)&psh, sizeof(struct PseudoHeader));
+  memcpy(pseudogram + sizeof(struct PseudoHeader), payload, htons(iph->tot_len) - iph->ihl*4);
+  unsigned short sum = compute_checksum((unsigned short *)pseudogram, psize);
 
-    delete[] pseudogram;
-    return sum;
+  delete[] pseudogram;
+  return sum;
 }
+
 unsigned short udp_checksum(struct iphdr *iph, struct udphdr *udph, unsigned char *payload, int payload_len) {
     struct PseudoHeader psh;
     psh.sourceAddress = iph->saddr;
@@ -142,15 +142,16 @@ void handle_client(int client_socket, string wanIP)
 
   while (true)
   {
+    // get the packet from the client
     int num_bytes = recv(client_socket, buffer, BUFFER_SIZE, 0);
     if (num_bytes == -1)
     {
-      perror("Empty or Error with receiving packet data");
+      perror("Error with receiving packet data");
       continue;
     }
     else if (num_bytes == 0)
     {
-      printf("Client disconnected\n");
+      printf("empty\n");
       break;
     }
 
@@ -164,14 +165,14 @@ void handle_client(int client_socket, string wanIP)
 
     struct iphdr *iph = (struct iphdr *)buffer;
 
-    // check the ip checksum
+    // Check the IP checksum
     unsigned short checksum = compute_checksum((unsigned short *)iph, iph->ihl * 4);
     if (checksum != 0)
     {
       cout << "IP Checksum failed. Dropping packet" << endl;
       return;
     }
-
+    // check the ttl
     if (iph->ttl <= 1)
     {
       cout << "TTL expired. Dropping packet" << endl;
@@ -179,8 +180,7 @@ void handle_client(int client_socket, string wanIP)
     }
     iph->ttl -= 1;
 
-    struct tcphdr *tcph; 
-    struct udphdr *udph;
+    // Check transport layer checksum
     if (iph->protocol == IPPROTO_TCP)
     {
       unsigned short myChecksum = tcp_checksum(iph, buffer + iph->ihl * 4, htons(iph->tot_len) - iph->ihl * 4);
@@ -206,11 +206,9 @@ void handle_client(int client_socket, string wanIP)
     std::cout << "Same subnet: = " << sameSubnet << std::endl;
     fflush(stdout);
 
-    if (sameSubnet)
+    if (sameSubnet) // LAN to LAN =================================================
     {
       iph->check = 0;
-      memcpy(buffer, iph, sizeof(struct iphdr));
-
       unsigned short new_checksum = compute_checksum((unsigned short *)buffer, iph->ihl * 4);
       iph->check = new_checksum;
 
@@ -218,43 +216,34 @@ void handle_client(int client_socket, string wanIP)
     }
     else
     {
-      std::cout << "NOT SAME SUBNET, GOING NAT IT UP" << std::endl;
-      // check if the source ip is in the vector of client ips
       bool isClient = std::find(clientIPs.begin(), clientIPs.end(), ipToString(iph->saddr)) != clientIPs.end();
       struct udphdr *udph;
       struct tcphdr *tcph;
-      PseudoHeader myPsuedo;
-      // Check the active type of the variant
+
+      // get transport header
       if (iph->protocol == IPPROTO_UDP)
       {
-        // Variant is UDPHeader
         udph = (struct udphdr *)(buffer + iph->ihl*4);
         udph->uh_sum = 0;
-        std::cout << "WOW its a udp header" << std::endl;
       }
       else if (iph->protocol == IPPROTO_TCP)
       {
         tcph = (struct tcphdr *)(buffer + sizeof(struct iphdr));
         tcph->th_sum = 0;
-        std::cout << "WOW its a tcp header" << std::endl;
       }
 
-      if (isClient) // LAN to WAN
+      if (isClient) // LAN to WAN =================================================
       {
         printf("LAN to WAN\n");
         pair<string, int> sourceKey;
         if (iph->protocol == IPPROTO_UDP)
-        {
           sourceKey = make_pair(ipToString(iph->saddr), htons(udph->uh_sport));
-        }
         else if (iph->protocol == IPPROTO_TCP) 
-        {
           sourceKey = make_pair(ipToString(iph->saddr), htons(tcph->th_sport));
-        }
         
+        // Dynamic NAPT
         if (lanToWan.count(sourceKey) == 0)
         {
-          // Add to NAPT table
           printf("Adding to NAPT table\n");
           lanToWan[sourceKey] = dynamicPort;
           wanToLan[dynamicPort] = sourceKey;
@@ -263,7 +252,7 @@ void handle_client(int client_socket, string wanIP)
         
         // Perform translation using the NAPT table
         uint16_t translatedPort = lanToWan[sourceKey];
-        printf("TRANSLATED PORT===: %d\n", translatedPort);
+        printf("TRANSLATED PORT: %d\n", translatedPort);
         if (iph->protocol == IPPROTO_UDP)
         {
           udph->uh_sport = htons(translatedPort);
@@ -273,13 +262,12 @@ void handle_client(int client_socket, string wanIP)
         {
           tcph->th_sport = htons(translatedPort);
           iph->saddr = inet_addr(wanIP.c_str());
-        }
-        
+        } 
       }
-      else // is not in Client list: translate from WAN to LAN
+      else // is not in Client list: translate from WAN to LAN ===================
       {
+        printf("WAN to LAN\n");
         u_int16_t destPort;
-
         if (iph->protocol == IPPROTO_UDP)
         {
           destPort = udph->uh_dport;
@@ -298,13 +286,6 @@ void handle_client(int client_socket, string wanIP)
 
           udph->uh_dport = htons(translatedIpAndPort.second);
           iph->daddr = inet_addr(translatedIpAndPort.first.c_str());
-
-          
-          myPsuedo.length = udph->uh_ulen;
-          myPsuedo.destinationAddress = iph->daddr;
-          myPsuedo.sourceAddress = iph->saddr;
-          myPsuedo.reserved = 0;
-          myPsuedo.protocol = iph->protocol;
         }
         else if (iph->protocol == IPPROTO_TCP)
         {
@@ -314,23 +295,9 @@ void handle_client(int client_socket, string wanIP)
 
           tcph->th_dport = htons(translatedIpAndPort.second);
           iph->daddr = inet_addr(translatedIpAndPort.first.c_str());
-          printf("translated destination port: **** %d\n", translatedIpAndPort.second);
-
-          unsigned int tcpHeaderLength = tcph->th_off * 4;
-          unsigned int dataLength = iph->tot_len - (iph->ihl * 4) - tcpHeaderLength;
-
-          myPsuedo.length = tcpHeaderLength + dataLength;
-
-          myPsuedo.sourceAddress = iph->saddr;
-          myPsuedo.destinationAddress = iph->daddr;
-
-          char sourceIP[INET_ADDRSTRLEN];
-          inet_ntop(AF_INET, &(myPsuedo.sourceAddress), sourceIP, INET_ADDRSTRLEN);
-
-          myPsuedo.reserved = 0;
-          myPsuedo.protocol = iph->protocol;
         }
       }
+
       iph->check = 0;
       unsigned short new_checksum = compute_checksum((unsigned short *)buffer, iph->ihl * 4);
       iph->check = new_checksum;
@@ -341,26 +308,20 @@ void handle_client(int client_socket, string wanIP)
         unsigned char *payload = buffer + iph->ihl * 4 + sizeof(struct udphdr);
         unsigned short checksum = udp_checksum(iph, udph, payload, payload_len);
         udph->uh_sum = checksum;
-        printf("udp checksum: %d\n", checksum);
       }
       else if (iph->protocol == IPPROTO_TCP)
       {
-        // unsigned int payloadLength = htons(iph->tot_len)- iph->ihl*4 - tcph->th_off*4;
         unsigned short myChecksum = tcp_checksum(iph, buffer + iph->ihl*4, htons(iph->tot_len) - iph->ihl*4);
         tcph->th_sum = myChecksum; 
       }
 
       if (address_to_socket.count(ipToString(iph->daddr)) > 0)
-      {
         send(address_to_socket[ipToString(iph->daddr)], buffer, num_bytes, 0);
-        std::cout << "Heree " << std::endl;
-      }
       else
       {
+        printf("unknown\n");
         send(address_to_socket["0.0.0.0"], buffer, num_bytes, 0);
-        std::cout << "Here INSTEAD " << std::endl;
       }
-      std::cout << "SENTTTT" << std::endl;
     }
   }
 
@@ -403,10 +364,7 @@ int main()
 
   int reuse = 1;
   if (setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0)
-  {
     perror("Failed to set SO_REUSEADDR option");
-    // handle the error
-  }
 
   if (::bind(serverSocket, (struct sockaddr *)&serverAddr, sizeof(serverAddr)) < 0)
   {
@@ -431,7 +389,6 @@ int main()
       perror("accept failed");
       return -1;
     }
-    // cout << "Connection accepted, spawning handler thread...\n" << endl;
 
     thread client_thread(handle_client, client_socket, wan);
     client_thread.detach();

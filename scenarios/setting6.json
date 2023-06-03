@@ -1,0 +1,34 @@
+{
+  "$schema": "./setting_schema.json",
+  "input": "./input.txt",
+  "actions": [
+    {
+      "kind": "send",
+      "port": 3,
+      "src_ip": "192.168.2.150",
+      "src_port": 7071,
+      "dst_ip": "10.0.0.30",
+      "dst_port": 60001,
+      "proto": "udp",
+      "payload": "",
+      "ttl": 64,
+      "$comment": "UDP packet from LAN to WAN"
+    },
+    {
+      "kind": "expect",
+      "port": 0,
+      "src_ip": "99.150.235.133",
+      "src_port": 4041,
+      "dst_ip": "10.0.0.30",
+      "dst_port": 60001,
+      "proto": "udp",
+      "payload": "",
+      "ttl": 63,
+      "$comment": "UDP packet from LAN to WAN"
+    },
+    {
+      "kind": "check",
+      "delay": 0.5
+    }
+  ]
+}
