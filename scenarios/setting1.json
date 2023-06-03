@@ -13,7 +13,7 @@
       "payload": "",
       "ttl": 64,
       "$comment": "Send a packet from port 1 to port 2"
-    },
+    }, 
     {
       "kind": "expect",
       "port": 2,

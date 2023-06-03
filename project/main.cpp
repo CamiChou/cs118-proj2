@@ -149,11 +149,10 @@ void handle_client(int client_socket, string wanIP)
   while (true)
   {
     int num_bytes = recv(client_socket, buffer, BUFFER_SIZE, 0);
-
     if (num_bytes <= 0)
     {
       perror("Empty or Error with receiving packet data");
-      return;
+      continue;
     }
 
     std::stringstream ss;
@@ -172,6 +171,13 @@ void handle_client(int client_socket, string wanIP)
 
     struct iphdr *iph = (struct iphdr *)buffer;
 
+    // check the ip checksum
+    unsigned short checksum = compute_checksum((unsigned short *)iph, iph->ihl * 4);
+    if (checksum != 0)
+    {
+      cout << "Checksum failed. Dropping packet" << endl;
+      continue;
+    }
     iph->ttl -= 1;
     if (iph->ttl <= 0)
     {
@@ -179,16 +185,46 @@ void handle_client(int client_socket, string wanIP)
       continue;
     }
 
-    // check the ip checksum
-    unsigned short checksum = compute_checksum((unsigned short *)buffer, sizeof(struct iphdr));
-    if (checksum != 0)
+    if (iph->protocol == IPPROTO_TCP)
     {
-      cout << "Checksum failed. Dropping packet" << endl;
-      continue;
+      struct tcphdr tcph;
+      memcpy(&tcph, buffer + iph->ihl * 4, sizeof(struct tcphdr));
+      unsigned short myChecksum = tcp_checksum(iph, buffer + iph->ihl * 4, htons(iph->tot_len) - iph->ihl * 4);
+      if (myChecksum != 0)
+      {
+        cout << "Checksum failed. Dropping packet" << endl;
+        continue;
+      }
     }
+    else if (iph->protocol == IPPROTO_UDP)
+    {
+      PseudoHeader myPsuedo;
+      struct udphdr udph;
+      memcpy(&udph, buffer + iph->ihl * 4, sizeof(struct udphdr));
+      myPsuedo.length = udph.uh_ulen;
+      inet_pton(AF_INET, datagram.ipHeader.sourceIP.c_str(), &(myPsuedo.sourceAddress));
+      inet_pton(AF_INET, datagram.ipHeader.destinationIP.c_str(), &(myPsuedo.destinationAddress));
+      char sourceIP[INET_ADDRSTRLEN];
+      inet_ntop(AF_INET, &(myPsuedo.sourceAddress), sourceIP, INET_ADDRSTRLEN);
+      myPsuedo.reserved = 0;
+      myPsuedo.protocol = datagram.ipHeader.protocol;
 
+      char *pseudoBuffer = new char[sizeof(PseudoHeader) + sizeof(struct udphdr)];
+      memcpy(pseudoBuffer, &myPsuedo, sizeof(PseudoHeader));                     // insert pseudo header into buffer
+      memcpy(pseudoBuffer + sizeof(PseudoHeader), &udph, sizeof(struct udphdr)); // insert udp header into buffer
 
+      // Calculate the UDP checksum
+      unsigned short myChecksum = compute_checksum(reinterpret_cast<unsigned short *>(pseudoBuffer), sizeof(PseudoHeader) + sizeof(struct udphdr));
+        
+      delete[] pseudoBuffer;
+      if (myChecksum != 0)
+      {
+        cout << "Checksum failed. Dropping packet" << endl;
+        continue;
+      }
 
+    }
+    
     // forward packet locally
     std::string subnetMask24 = "255.255.255.0";
 
@@ -409,7 +445,6 @@ void handle_client(int client_socket, string wanIP)
         udph.uh_sum = myChecksum;
 
         // std::cout << "PSEUDO CHECKSUM" << myChecksum << std::endl;
-
         memcpy(pseudoBuffer + sizeof(PseudoHeader), &udph, sizeof(struct udphdr)); // insert udp header into buffer
 
         // reconstruct buffer with ip header and new udp header and original data
@@ -437,7 +472,6 @@ void handle_client(int client_socket, string wanIP)
         send(address_to_socket["0.0.0.0"], buffer, num_bytes, 0);
         std::cout << "Here INSTEAD " << std::endl;
       }
-
       std::cout << "SENTTTT" << std::endl;
     }
   }
@@ -498,8 +532,6 @@ int main()
 
   while (1)
   {
-    // cout << "Server waiting for connection...\n" << endl;
-
     struct sockaddr_in client_address;
     socklen_t client_len = sizeof(client_address);
 
