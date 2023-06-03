@@ -195,7 +195,7 @@ void handle_client(int client_socket, string wanIP)
       }
       else if (iph->protocol == IPPROTO_TCP)
       {
-        tcph = (struct tcphdr *)(buffer + sizeof(struct iphdr));
+        tcph = (struct tcphdr *)(buffer + iph->ihl*4);
         tcph->th_sum = 0;
       }
 
@@ -211,6 +211,7 @@ void handle_client(int client_socket, string wanIP)
         // Dynamic NAPT
         if (lanToWan.count(sourceKey) == 0)
         {
+          printf("Source key not found in NAPT table: %s:%d\n", sourceKey.first.c_str(), sourceKey.second);
           if (dynamicPort > 65535)
           {
             printf("Dynamic port range exceeded\n");
