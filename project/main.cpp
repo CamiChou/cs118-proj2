@@ -232,6 +232,12 @@ void handle_client(int client_socket, string wanIP)
         // Dynamic NAPT
         if (lanToWan.count(sourceKey) == 0)
         {
+          if (dynamicPort > 65535)
+          {
+            printf("Dynamic port range exceeded\n");
+            dynamicPort = 49152;
+          }
+
           printf("Adding to NAPT table\n");
           lanToWan[sourceKey] = dynamicPort;
           wanToLan[dynamicPort] = sourceKey;
@@ -286,9 +292,10 @@ void handle_client(int client_socket, string wanIP)
         }
       }
 
-      iph->check = 0;
-      unsigned short new_checksum = compute_checksum((unsigned short *)buffer, iph->ihl * 4);
-      iph->check = new_checksum;
+      // CHECKSUM CALCULATIONS !!!!!!!!!
+      // iph->check = 0;
+      // unsigned short new_checksum = compute_checksum((unsigned short *)buffer, iph->ihl * 4);
+      // iph->check = new_checksum;
 
       if (iph->protocol == IPPROTO_UDP) 
       {
@@ -302,6 +309,10 @@ void handle_client(int client_socket, string wanIP)
         unsigned short myChecksum = tcp_checksum(iph, buffer + iph->ihl*4, htons(iph->tot_len) - iph->ihl*4);
         tcph->th_sum = myChecksum; 
       }
+
+      iph->check = 0;
+      unsigned short new_checksum = compute_checksum((unsigned short *)buffer, iph->ihl * 4);
+      iph->check = new_checksum;
 
       if (AddressToSocket.count(ipToString(iph->daddr)) > 0)
         send(AddressToSocket[ipToString(iph->daddr)], buffer, num_bytes, 0);
