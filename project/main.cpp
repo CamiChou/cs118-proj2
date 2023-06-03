@@ -264,6 +264,7 @@ void handle_client(int client_socket, string wanIP)
       std::cout << "NOT SAME SUBNET, GOING NAT IT UP" << std::endl;
       // check if the source ip is in the vector of client ips
       bool isClient = std::find(clientIPs.begin(), clientIPs.end(), datagram.ipHeader.sourceIP) != clientIPs.end();
+      std::cout << "isClient: " << isClient << std::endl;
       struct udphdr udph;
       struct tcphdr *tcph;
       PseudoHeader myPsuedo;
@@ -300,10 +301,11 @@ void handle_client(int client_socket, string wanIP)
         if (lanToWan.count(sourceKey) == 0)
         {
           // Add to NAPT table
-          printf("Adding to NAPT table\n");
-          lanToWan[sourceKey] = dynamicPort;
-          wanToLan[dynamicPort] = sourceKey;
-          dynamicPort++;
+          // printf("Adding to NAPT table\n");
+          // lanToWan[sourceKey] = dynamicPort;
+          // wanToLan[dynamicPort] = sourceKey;
+          // dynamicPort++;
+          continue;
         }
         // Perform translation using the NAPT table
         int translatedPort = lanToWan[sourceKey];
@@ -351,21 +353,29 @@ void handle_client(int client_socket, string wanIP)
       }
       else // is not in Client list: translate from WAN to LAN
       {
-        printf("--------------------------WAN to LAN--------------------------\n");
+        cout << "--------------------------WAN to LAN--------------------------" << endl;
         u_int16_t destPort;
 
         if (std::holds_alternative<UDPHeader>(datagram.transportHeader.header))
         {
-          printf("--------------------------WAN to LAN (UDP)--------------------------\n");
+          cout << "--------------------------WAN to LAN (UDP)--------------------------" << endl;
           destPort = udph.uh_dport;
           int destPortInt = ntohs(destPort);
 
-          for (const auto &[wanPort, lanIp] : wanToLan)
+          // for (const auto &[wanPort, lanIp] : wanToLan)
+          // {
+          //   printf("WAN PORT: %d\n LANIP: %08X Translated to LAN Port: %d\n", wanPort, lanIp.first, lanIp.second);
+          //   fflush(stdout);
+          //   // std::cout << "WAN Port: " << wanPort << std::endl;
+          //   // std::cout << "LAN IP: " << lanIp.first << "LAN Port:" << lanIp.second << std::endl;
+          // }
+          cout << "This is the port we are tryingg to find: " << destPortInt << endl;
+          cout << "This is the dictionary we have right now" << endl;
+          std::cout << std::dec;
+          for (const auto &pair : wanToLan)
           {
-            printf("WAN PORT: %d\n LANIP: %08X Translated to LAN Port: %d\n", wanPort, lanIp.first, lanIp.second);
-            fflush(stdout);
-            // std::cout << "WAN Port: " << wanPort << std::endl;
-            // std::cout << "LAN IP: " << lanIp.first << "LAN Port:" << lanIp.second << std::endl;
+
+            std::cout << "wan port: " << pair.first << " lan add: " << pair.second.first << " lan port: " << pair.second.second << endl;
           }
           pair<string, int> translatedIpAndPort;
           // check if destPortInt is in the WAN to LAN map
@@ -375,14 +385,17 @@ void handle_client(int client_socket, string wanIP)
           }
           else
           {
-            printf("DROPPING PACKET\n");
+            cout << "packet is dropped" << endl;
             continue;
           }
+
+          cout << "This is the translataed destination before: " << translatedIpAndPort.first << endl;
 
           printf("DEST PORT: %d\nTranslated to LAN IP: %s\nTranslated to LAN Port: %d\n", destPortInt, translatedIpAndPort.first.c_str(), translatedIpAndPort.second);
           fflush(stdout);
 
           udph.uh_dport = htons(translatedIpAndPort.second);
+
           datagram.ipHeader.destinationIP = translatedIpAndPort.first;
           myPsuedo.length = udph.uh_ulen;
 
@@ -467,6 +480,7 @@ void handle_client(int client_socket, string wanIP)
         tcph->th_sum = myChecksum;
       }
 
+      cout << "This is the translataed destination: " << datagram.ipHeader.destinationIP << endl;
       if (address_to_socket.count(datagram.ipHeader.destinationIP) > 0)
       {
         send(address_to_socket[datagram.ipHeader.destinationIP], buffer, num_bytes, 0);
