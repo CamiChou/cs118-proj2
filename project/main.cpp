@@ -351,17 +351,21 @@ void handle_client(int client_socket, string wanIP)
       }
       else // is not in Client list: translate from WAN to LAN
       {
+        printf("--------------------------WAN to LAN--------------------------\n");
         u_int16_t destPort;
 
         if (std::holds_alternative<UDPHeader>(datagram.transportHeader.header))
         {
+          printf("--------------------------WAN to LAN (UDP)--------------------------\n");
           destPort = udph.uh_dport;
           int destPortInt = ntohs(destPort);
 
           for (const auto &[wanPort, lanIp] : wanToLan)
           {
-            std::cout << "WAN Port: " << wanPort << std::endl;
-            std::cout << "LAN IP: " << lanIp.first << "LAN Port:" << lanIp.second << std::endl;
+            printf("WAN PORT: %d\n LANIP: %08X Translated to LAN Port: %d\n", wanPort, lanIp.first, lanIp.second);
+            fflush(stdout);
+            // std::cout << "WAN Port: " << wanPort << std::endl;
+            // std::cout << "LAN IP: " << lanIp.first << "LAN Port:" << lanIp.second << std::endl;
           }
           pair<string, int> translatedIpAndPort;
           // check if destPortInt is in the WAN to LAN map
