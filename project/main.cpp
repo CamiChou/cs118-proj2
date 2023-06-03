@@ -98,13 +98,13 @@ unsigned short tcp_checksum(struct iphdr *iph, unsigned char *payload, int paylo
   psh.destinationAddress = iph->daddr;
   psh.reserved = 0;
   psh.protocol = IPPROTO_TCP;
-  psh.length = htons(htons(iph->tot_len) - iph->ihl*4);
+  psh.length = htons(ntohs(iph->tot_len) - iph->ihl*4);
 
-  int psize = sizeof(struct PseudoHeader) + htons(iph->tot_len) - iph->ihl*4;
+  int psize = sizeof(struct PseudoHeader) + ntohs(iph->tot_len) - iph->ihl*4;
   auto *pseudogram = new uint8_t[psize];
 
   memcpy(pseudogram, (char *)&psh, sizeof(struct PseudoHeader));
-  memcpy(pseudogram + sizeof(struct PseudoHeader), payload, htons(iph->tot_len) - iph->ihl*4);
+  memcpy(pseudogram + sizeof(struct PseudoHeader), payload, ntohs(iph->tot_len) - iph->ihl*4);
   unsigned short sum = compute_checksum((unsigned short *)pseudogram, psize);
 
   delete[] pseudogram;
@@ -174,7 +174,7 @@ void handle_client(int client_socket, string wanIP)
     // Check transport layer checksum
     if (iph->protocol == IPPROTO_TCP)
     {
-      unsigned short myChecksum = tcp_checksum(iph, buffer + iph->ihl * 4, htons(iph->tot_len) - iph->ihl * 4);
+      unsigned short myChecksum = tcp_checksum(iph, buffer + iph->ihl * 4, ntohs(iph->tot_len) - iph->ihl * 4);
       if (myChecksum != 0)
       {
         cout << "TCP Checksum failed. Dropping packet" << endl;
@@ -183,7 +183,7 @@ void handle_client(int client_socket, string wanIP)
     }
     else if (iph->protocol == IPPROTO_UDP)
     {
-      unsigned short myChecksum = udp_checksum(iph, (struct udphdr *)(buffer + iph->ihl * 4), buffer + iph->ihl * 4 + sizeof(struct udphdr), htons(iph->tot_len) - iph->ihl * 4 - sizeof(struct udphdr));
+      unsigned short myChecksum = udp_checksum(iph, (struct udphdr *)(buffer + iph->ihl * 4), buffer + iph->ihl * 4 + sizeof(struct udphdr), ntohs(iph->tot_len) - iph->ihl * 4 - sizeof(struct udphdr));
       if (myChecksum != 0)
       {
         cout << "UDP Checksum failed. Dropping packet" << endl;
@@ -225,9 +225,9 @@ void handle_client(int client_socket, string wanIP)
         printf("LAN to WAN\n");
         pair<string, int> sourceKey;
         if (iph->protocol == IPPROTO_UDP)
-          sourceKey = make_pair(ipToString(iph->saddr), htons(udph->uh_sport));
+          sourceKey = make_pair(ipToString(iph->saddr), ntohs(udph->uh_sport));
         else if (iph->protocol == IPPROTO_TCP) 
-          sourceKey = make_pair(ipToString(iph->saddr), htons(tcph->th_sport));
+          sourceKey = make_pair(ipToString(iph->saddr), ntohs(tcph->th_sport));
         
         // Dynamic NAPT
         if (lanToWan.count(sourceKey) == 0)
@@ -315,7 +315,7 @@ void handle_client(int client_socket, string wanIP)
       }
       else if (iph->protocol == IPPROTO_TCP)
       {
-        unsigned short myChecksum = tcp_checksum(iph, buffer + iph->ihl*4, htons(iph->tot_len) - iph->ihl*4);
+        unsigned short myChecksum = tcp_checksum(iph, buffer + iph->ihl*4, ntohs(iph->tot_len) - iph->ihl*4);
         tcph->th_sum = myChecksum; 
       }
 
