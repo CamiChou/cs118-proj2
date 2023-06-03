@@ -91,51 +91,9 @@ unsigned short compute_checksum(unsigned short *addr, int len)
   return result;
 }
 
-unsigned short tcp_checksum(struct iphdr *iph, unsigned char *payload, int payload_len)
-{
-  struct PseudoHeader psh;
-  psh.sourceAddress = iph->saddr;
-  psh.destinationAddress = iph->daddr;
-  psh.reserved = 0;
-  psh.protocol = iph->protocol;
-  psh.length = htons(ntohs(iph->tot_len) - iph->ihl*4);
-
-  int psize = sizeof(struct PseudoHeader) + ntohs(iph->tot_len) - iph->ihl*4;
-  auto *pseudogram = new uint8_t[psize];
-
-  memcpy(pseudogram, (char *)&psh, sizeof(struct PseudoHeader));
-  memcpy(pseudogram + sizeof(struct PseudoHeader), payload, ntohs(iph->tot_len) - iph->ihl*4);
-  unsigned short sum = compute_checksum((unsigned short *)pseudogram, psize);
-
-  delete[] pseudogram;
-  return sum;
-}
-
-unsigned short udp_checksum(struct iphdr *iph, struct udphdr *udph, unsigned char *payload, int payload_len) {
-    struct PseudoHeader psh;
-    psh.sourceAddress = iph->saddr;
-    psh.destinationAddress = iph->daddr;
-    psh.reserved = 0;
-    psh.protocol = iph->protocol;
-    psh.length = htons(sizeof(struct udphdr) + payload_len);
-
-    int psize = sizeof(struct PseudoHeader) + sizeof(struct udphdr) + payload_len;
-    uint8_t *pseudogram = new uint8_t[psize];
-
-    memcpy(pseudogram, &psh, sizeof(struct PseudoHeader));
-    memcpy(pseudogram + sizeof(struct PseudoHeader), udph, sizeof(struct udphdr));
-    memcpy(pseudogram + sizeof(struct PseudoHeader) + sizeof(struct udphdr), payload, payload_len);
-
-    unsigned short checksum = compute_checksum((unsigned short *)pseudogram, psize);
-
-    delete[] pseudogram;
-    return checksum;
-}
 unsigned short transport_checksum(struct iphdr *iph, unsigned char *payload) 
 {
-  unsigned short ipHeaderLength = iph->ihl * 4;
-  unsigned short transportLength = ntohs(iph->tot_len) - ipHeaderLength;
-  int totalLength = transportLength + ipHeaderLength;
+  unsigned short transportLength = ntohs(iph->tot_len) - iph->ihl * 4;
 
   struct PseudoHeader psh;
   psh.sourceAddress = iph->saddr;
@@ -144,7 +102,7 @@ unsigned short transport_checksum(struct iphdr *iph, unsigned char *payload)
   psh.protocol = iph->protocol;
   psh.length = htons(transportLength);
 
-  int pseudogramSize = sizeof(struct PseudoHeader) + transportLength; //????
+  int pseudogramSize = sizeof(struct PseudoHeader) + transportLength;
   uint8_t *pseudogram = new uint8_t[pseudogramSize];  
 
   memcpy(pseudogram, (char *)&psh, sizeof(struct PseudoHeader));
@@ -153,18 +111,6 @@ unsigned short transport_checksum(struct iphdr *iph, unsigned char *payload)
 
   delete[] pseudogram;
   return sum;
-
-    // int psize = sizeof(struct PseudoHeader) + sizeof(struct udphdr) + payload_len;
-    // uint8_t *pseudogram = new uint8_t[psize];
-
-    // memcpy(pseudogram, &psh, sizeof(struct PseudoHeader));
-    // memcpy(pseudogram + sizeof(struct PseudoHeader), udph, sizeof(struct udphdr));
-    // memcpy(pseudogram + sizeof(struct PseudoHeader) + sizeof(struct udphdr), payload, payload_len);
-
-    // unsigned short checksum = compute_checksum((unsigned short *)pseudogram, psize);
-
-    // delete[] pseudogram;
-    // return checksum;
 }
 
 void handle_client(int client_socket, string wanIP)
@@ -209,7 +155,6 @@ void handle_client(int client_socket, string wanIP)
     // Check transport layer checksum
     if (iph->protocol == IPPROTO_TCP)
     {
-      // unsigned short myChecksum = tcp_checksum(iph, buffer + iph->ihl * 4, ntohs(iph->tot_len) - iph->ihl * 4);
       unsigned short myChecksum = transport_checksum(iph, buffer + iph->ihl * 4);
       if (myChecksum != 0)
       {
@@ -219,7 +164,6 @@ void handle_client(int client_socket, string wanIP)
     }
     else if (iph->protocol == IPPROTO_UDP)
     {
-      // unsigned short myChecksum = udp_checksum(iph, (struct udphdr *)(buffer + iph->ihl * 4), buffer + iph->ihl * 4 + sizeof(struct udphdr), ntohs(iph->tot_len) - iph->ihl * 4 - sizeof(struct udphdr));
       unsigned short myChecksum = transport_checksum(iph, buffer + iph->ihl * 4);
       if (myChecksum != 0)
       {
@@ -341,15 +285,11 @@ void handle_client(int client_socket, string wanIP)
       // RECOMPUTE CHECKSUMS !!!!!!!!!!!!!!!!!!!!!!!!
       if (iph->protocol == IPPROTO_UDP) 
       {
-        int payload_len = ntohs(iph->tot_len) - (iph->ihl * 4) - sizeof(struct udphdr);
-        unsigned char *payload = buffer + iph->ihl * 4 + sizeof(struct udphdr);
-        // unsigned short checksum = udp_checksum(iph, udph, payload, payload_len);
         unsigned short checksum = transport_checksum(iph, buffer + iph->ihl*4);
         udph->uh_sum = checksum;
       }
       else if (iph->protocol == IPPROTO_TCP)
       {
-        // unsigned short myChecksum = tcp_checksum(iph, buffer + iph->ihl*4, ntohs(iph->tot_len) - iph->ihl*4);
         unsigned short myChecksum = transport_checksum(iph, buffer + iph->ihl*4);
         tcph->th_sum = myChecksum; 
       }
