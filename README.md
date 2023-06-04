@@ -5,7 +5,7 @@ The Docker environment has the same setting with project 0.
 
 ## Academic Integrity Note
 
-You are encouraged to host your code in private repositories on [GitHub](https://github.com/), [GitLab](https://gitlab.com), or other places.  At the same time, you are PROHIBITED to make your code for the class project public during the class or any time after the class.  If you do so, you will be violating academic honestly policy that you have signed, as well as the student code of conduct and be subject to serious sanctions.
+You are encouraged to host your code in private repositories on [GitHub](https://github.com/), [GitLab](https://gitlab.com), or other places. At the same time, you are PROHIBITED to make your code for the class project public during the class or any time after the class. If you do so, you will be violating academic honestly policy that you have signed, as well as the student code of conduct and be subject to serious sanctions.
 
 ## Provided Files
 
@@ -41,6 +41,7 @@ docker compose down -v --rmi all --remove-orphans
 To test your program with the provided checker, go to the root folder of the repo and
 run `python3 grader/executor.py <path-to-server> <path-to-scenario-file>`.  
 For example, to run the first given test case, run the following command:
+
 ```bash
 python3 grader/executor.py project/server scenarios/setting1.json
 # Passed check point 1
@@ -73,7 +74,7 @@ The fields of the JSON file are:
   - The last action of `actions` must be `check`.
 - The fields of a packet include:
   - `port`: The ID of the router port to send/receive the packet, not the port number.
-  The port numbers are specified in `src_port` and `dst_port`.
+    The port numbers are specified in `src_port` and `dst_port`.
   - `src_ip` and `src_port`: The source IP address and port number.
   - `dst_ip` and `dst_port`: The destination IP address and port number.
   - `proto`: The transport layer protocol. Can only be `tcp` or `udp`.
@@ -95,27 +96,28 @@ Please read the example JSON files and the schema JSON for details.
 To print all packets in a test scenario in hex format,
 run `python3 grader/packet_generate.py` and input the JSON setting.
 You may also use `<` to redirect the input to the JSON file, like
+
 ```bash
 python3 grader/packet_generate.py < scenarios/setting1.json
 # ================== SEND @@ 01 ==================
-# 45 00 00 1c 00 00 40 00  40 11 b6 54 c0 a8 01 64 
+# 45 00 00 1c 00 00 40 00  40 11 b6 54 c0 a8 01 64
 # c0 a8 01 c8 13 88 17 70  00 08 50 69
 # ================== ========== ==================
 #
 # ================== RECV @@ 02 ==================
-# 45 00 00 1c 00 00 40 00  3f 11 b7 54 c0 a8 01 64 
+# 45 00 00 1c 00 00 40 00  3f 11 b7 54 c0 a8 01 64
 # c0 a8 01 c8 13 88 17 70  00 08 50 69
 # ================== ========== ==================
 #
 # Check point 1
 #
 # ================== SEND @@ 01 ==================
-# 46 00 00 20 00 00 40 00  40 11 b4 4f c0 a8 01 64 
+# 46 00 00 20 00 00 40 00  40 11 b4 4f c0 a8 01 64
 # c0 a8 01 c8 01 01 00 00  13 88 17 70 00 08 50 69
 # ================== ========== ==================
 #
 # ================== RECV @@ 02 ==================
-# 46 00 00 20 00 00 40 00  3f 11 b5 4f c0 a8 01 64 
+# 46 00 00 20 00 00 40 00  3f 11 b5 4f c0 a8 01 64
 # c0 a8 01 c8 01 01 00 00  13 88 17 70 00 08 50 69
 # ================== ========== ==================
 #
@@ -136,8 +138,26 @@ python3 grader/packet_generate.py < scenarios/setting1.json
 
 ## TODO
 
-    ###########################################################
-    ##                                                       ##
-    ## REPLACE CONTENT OF THIS FILE WITH YOUR PROJECT REPORT ##
-    ##                                                       ##
-    ###########################################################
+Team Members and UIDs:
+
+Camille Chou (905707606)
+Jason Inaba (905539383)
+Ollie Pai (305718387)
+
+High level Design:
+
+On a high level, our router performs Network Address and Port Translation (NAPT) to translate LAN IP addresses and ports to a WAN IP address and ports, and vice versa in the language of C++. It handles incoming packets, performs checks and translations, and forwards the packets to the appropriate destination. The code consists of outside classes and files that we added to the main.cpp which were the config_parser.cpp/config_parser.h files which parsed the .txt files that we were given in order to properly store the information regarding napt translations, IP headers in proper formats such as maps, structs, and classes.
+
+The main function initializes the router by parsing a configuration file using the outside classes. It sets up the necessary data structures, such as the mappings between LAN and WAN IP addresses and ports. It also creates a server socket and listens for incoming connections.
+
+When a client connects to the router, a new thread is created to handle the client. The handle_client function is responsible for receiving and processing packets from the client. It starts by checking the IP checksum and TTL (Time to Live) of the packet. If the checksum or TTL is invalid, the packet is dropped. The function also takes in account if the packet ois traveling LAN to LAN, LAN to WAN, or WAN to LAN and processes accordingly via the NAPT table translations (two maps). It performs dynamic NAPTt trasnlation to ensure it can rapid update.
+
+After the translation is performed, the function recomputes the IP and transport layer checksums and sends the packet to the destination using a PseudoHeader. The process continues until all packets from the client are processed, and then the client socket is closed.
+
+The problems you ran into and how you solved the problems:
+
+We ran into several problems when creating this router. For one, it took us awhile to realize how after NAPT translations it was necessary to recompute a checksum using a pseudoheader. That took a lot of reserch to figure out and scouring documentation that led us to realize how exactly pseudoheaders worked and how to compute the checksum using them. The data parsing also was a bit of a learning curve to figure out which structures and information to extract. This was done via a lot of trial and error. A final problem that we had was that the Gradescope tcp offset was assignned incorrectl, mainly the size. This was really messing up the static NAPT table and stress tests and it wasn't until we asked the TA about insight on the Gradescope case were we finally able to achieve a full score.
+
+Acknowledgement of any online tutorials or code examples (except class website) you have been using.
+
+We used some information from the internet to guide our understanding of the router, how it worked and all its components. A lot of diagrams from wiki pages and the textbook regarding IP, UDP, and TCP header were used, especially when it came down to distinguishing how many bits and bytes of data were allocated for each section. Furthermore, some TA slides we found helpful for getting started and understanding the concepts and high level design.

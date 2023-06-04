@@ -49,19 +49,20 @@ struct PseudoHeader
   uint16_t length;
 };
 
-bool fromSameSubnet(uint32_t ip1, uint32_t ip2) {
-    uint32_t ip1_host_order = ntohl(ip1);
-    uint32_t ip2_host_order = ntohl(ip2);
+bool fromSameSubnet(uint32_t ip1, uint32_t ip2)
+{
+  uint32_t ip1_host_order = ntohl(ip1);
+  uint32_t ip2_host_order = ntohl(ip2);
 
-    return (ip1_host_order >> 8) == (ip2_host_order >> 8);
+  return (ip1_host_order >> 8) == (ip2_host_order >> 8);
 }
 string ipToString(uint32_t address)
 {
-    struct in_addr ipAddr;
-    ipAddr.s_addr = address;
-    char str[INET_ADDRSTRLEN];
-    inet_ntop(AF_INET, &ipAddr, str, INET_ADDRSTRLEN);
-    return std::string(str);
+  struct in_addr ipAddr;
+  ipAddr.s_addr = address;
+  char str[INET_ADDRSTRLEN];
+  inet_ntop(AF_INET, &ipAddr, str, INET_ADDRSTRLEN);
+  return std::string(str);
 }
 
 unsigned short compute_checksum(unsigned short *addr, int len)
@@ -89,7 +90,7 @@ unsigned short compute_checksum(unsigned short *addr, int len)
   return result;
 }
 
-unsigned short transport_checksum(struct iphdr *iph, unsigned char *payload) 
+unsigned short transport_checksum(struct iphdr *iph, unsigned char *payload)
 {
   unsigned short transportLength = ntohs(iph->tot_len) - iph->ihl * 4;
 
@@ -101,7 +102,7 @@ unsigned short transport_checksum(struct iphdr *iph, unsigned char *payload)
   psh.length = htons(transportLength);
 
   int pseudogramSize = sizeof(struct PseudoHeader) + transportLength;
-  uint8_t *pseudogram = new uint8_t[pseudogramSize];  
+  uint8_t *pseudogram = new uint8_t[pseudogramSize];
 
   memcpy(pseudogram, (char *)&psh, sizeof(struct PseudoHeader));
   memcpy(pseudogram + sizeof(struct PseudoHeader), payload, transportLength);
@@ -168,7 +169,7 @@ void handle_client(int client_socket, string wanIP)
         continue;
       }
     }
-    
+
     bool sameSubnet = fromSameSubnet(iph->saddr, iph->daddr);
     bool isWan = fromSameSubnet(iph->saddr, inet_addr(wanIP.c_str()));
 
@@ -190,12 +191,12 @@ void handle_client(int client_socket, string wanIP)
       // get transport header
       if (iph->protocol == IPPROTO_UDP)
       {
-        udph = (struct udphdr *)(buffer + iph->ihl*4);
+        udph = (struct udphdr *)(buffer + iph->ihl * 4);
         udph->uh_sum = 0;
       }
       else if (iph->protocol == IPPROTO_TCP)
       {
-        tcph = (struct tcphdr *)(buffer + iph->ihl*4);
+        tcph = (struct tcphdr *)(buffer + iph->ihl * 4);
         tcph->th_sum = 0;
       }
 
@@ -205,9 +206,9 @@ void handle_client(int client_socket, string wanIP)
         pair<string, int> sourceKey;
         if (iph->protocol == IPPROTO_UDP)
           sourceKey = make_pair(ipToString(iph->saddr), ntohs(udph->uh_sport));
-        else if (iph->protocol == IPPROTO_TCP) 
+        else if (iph->protocol == IPPROTO_TCP)
           sourceKey = make_pair(ipToString(iph->saddr), ntohs(tcph->th_sport));
-        
+
         // Dynamic NAPT
         if (lanToWan.count(sourceKey) == 0)
         {
@@ -223,7 +224,7 @@ void handle_client(int client_socket, string wanIP)
           wanToLan[dynamicPort] = sourceKey;
           dynamicPort++;
         }
-        
+
         // Perform translation using the NAPT table
         // print lan to wan table
         printf("LAN to WAN table\n");
@@ -245,7 +246,7 @@ void handle_client(int client_socket, string wanIP)
           printf("Replacing source port: %d -> %d\n", ntohs(tcph->th_sport), translatedPort);
           tcph->th_sport = htons(translatedPort);
           iph->saddr = inet_addr(wanIP.c_str());
-        } 
+        }
         fflush(stdout);
       }
       else // is not in Client list: translate from WAN to LAN ===================
@@ -261,7 +262,7 @@ void handle_client(int client_socket, string wanIP)
           if (wanToLan.count(destPortInt) > 0)
           {
             translatedIpAndPort = wanToLan[destPortInt];
-          } 
+          }
           else
           {
             // printf("not recognized...DROPPING PACKET\n\t");
@@ -296,15 +297,15 @@ void handle_client(int client_socket, string wanIP)
       }
 
       // RECOMPUTE CHECKSUMS !!!!!!!!!!!!!!!!!!!!!!!!
-      if (iph->protocol == IPPROTO_UDP) 
+      if (iph->protocol == IPPROTO_UDP)
       {
-        unsigned short checksum = transport_checksum(iph, buffer + iph->ihl*4);
+        unsigned short checksum = transport_checksum(iph, buffer + iph->ihl * 4);
         udph->uh_sum = checksum;
       }
       else if (iph->protocol == IPPROTO_TCP)
       {
-        unsigned short myChecksum = transport_checksum(iph, buffer + iph->ihl*4);
-        tcph->th_sum = myChecksum; 
+        unsigned short myChecksum = transport_checksum(iph, buffer + iph->ihl * 4);
+        tcph->th_sum = myChecksum;
       }
 
       iph->check = 0;
@@ -315,7 +316,7 @@ void handle_client(int client_socket, string wanIP)
         send(AddressToSocket[ipToString(iph->daddr)], buffer, num_bytes, 0);
       else
         send(AddressToSocket["0.0.0.0"], buffer, num_bytes, 0);
-      
+
       num_bytes = recv(client_socket, buffer, BUFFER_SIZE, 0);
     }
   }
@@ -390,4 +391,3 @@ int main()
   }
   return 0;
 }
-
